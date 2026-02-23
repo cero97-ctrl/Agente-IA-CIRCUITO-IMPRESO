@@ -95,18 +95,26 @@ def run_tool(script, args):
     script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), script)
     cmd = [sys.executable, script_path] + args
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
         
         # Mostrar stderr para depuración (RAG, errores, etc.)
         if result.stderr:
             print(f"   🛠️  [LOG {script}]: {result.stderr.strip()}")
-            
-        return json.loads(result.stdout)
-    except json.JSONDecodeError:
-        return None
+        
+        try:
+            return json.loads(result.stdout)
+        except json.JSONDecodeError:
+            return {
+                "status": "error",
+                "message": f"La salida de '{script}' no es un JSON válido.",
+                "details": result.stdout[:500]
+            }
     except Exception as e:
-        print(f"Error ejecutando {script}: {e}")
-        return None
+        return {
+            "status": "error",
+            "message": f"Excepción crítica al ejecutar '{script}'.",
+            "details": str(e)
+        }
 
 def main():
     print("📡 Escuchando Telegram... (Presiona Ctrl+C para detener)")
@@ -306,38 +314,37 @@ Resultados de Búsqueda:
                     elif msg.startswith("/reporte") or msg.startswith("/report"):
                         topic = msg.split(" ", 1)[1] if " " in msg else ""
                         if not topic:
-                            reply_text = "⚠️ Uso: /reporte [tema médico o de investigación]"
+                            reply_text = "⚠️ Uso: /reporte [tema técnico o de ingeniería]"
                         else:
-                            print(f"   🏥 Generando reporte sobre: {topic}")
-                            run_tool("telegram_tool.py", ["--action", "send", "--message", f"👩‍⚕️ Iniciando investigación profunda sobre '{topic}'... Esto tomará unos segundos.", "--chat-id", sender_id])
+                            print(f"   ️ Generando reporte técnico sobre: {topic}")
+                            run_tool("telegram_tool.py", ["--action", "send", "--message", f"👷 Iniciando investigación técnica sobre '{topic}'... Esto tomará unos segundos.", "--chat-id", sender_id])
                             
                             # 1. Investigar (Search)
-                            # Buscamos específicamente tratamientos y terapias
-                            query = f"tratamientos terapias y recuperación para {topic}"
-                            res_search = run_tool("research_topic.py", ["--query", query, "--output-file", ".tmp/med_research.txt"])
+                            query = f"especificaciones técnicas tutoriales y documentación para {topic}"
+                            res_search = run_tool("research_topic.py", ["--query", query, "--output-file", ".tmp/tech_research.txt"])
                             
                             if res_search and res_search.get("status") == "success":
                                 try:
-                                    with open(".tmp/med_research.txt", "r", encoding="utf-8") as f:
+                                    with open(".tmp/tech_research.txt", "r", encoding="utf-8") as f:
                                         search_data = f.read()
                                     
                                     # 2. Generar Reporte (LLM)
-                                    report_prompt = f"""Actúa como un Asistente Médico de Investigación experto y empático.
-Basado en los siguientes resultados de búsqueda, genera un REPORTE DETALLADO en formato Markdown sobre '{topic}'.
+                                    report_prompt = f"""Actúa como un Asistente de Ingeniería experto en Fabricación Digital y Electrónica.
+Basado en los siguientes resultados de búsqueda, genera un REPORTE TÉCNICO DETALLADO en formato Markdown sobre '{topic}'.
 
 Estructura sugerida:
 1. 📋 Resumen Ejecutivo
-2. 💊 Tratamientos Convencionales
-3. 🧘 Terapias de Rehabilitación y Fisioterapia (Ejercicios recomendados)
-4. ⏱️ Tiempos de Recuperación Estimados
-5. 🏠 Recomendaciones y Cuidados en Casa
+2. ⚙️ Especificaciones Técnicas y Requisitos
+3. 🛠️ Guía de Implementación / Paso a Paso
+4. ⚠️ Posibles Problemas y Soluciones (Troubleshooting)
+5. 📚 Referencias y Recursos Adicionales
 
 RESULTADOS DE BÚSQUEDA:
 {search_data}
 
 IMPORTANTE:
-- Usa un tono profesional pero claro y esperanzador.
-- INCLUYE UN DISCLAIMER AL INICIO: "Nota: Soy una IA. Este reporte es informativo y no sustituye el consejo médico profesional."
+ Usa un tono profesional, técnico y preciso.
+ Enfócate en la practicidad y la implementación con herramientas libres (Open Source) si aplica.
 """
                                     run_tool("telegram_tool.py", ["--action", "send", "--message", "🧠 Analizando datos y redactando informe...", "--chat-id", sender_id])
                                     
@@ -448,14 +455,54 @@ IMPORTANTE:
                             save_config(config)
                             reply_text = f"✅ Idioma de voz cambiado a: `{code}`.\nAhora te escucharé en ese idioma."
 
-                    elif msg.startswith("/ayuda_medica"):
-                        manual_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "manual_medico.pdf")
+                    elif msg.startswith("/ayuda_cnc"):
+                        manual_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "CNC.md")
                         if os.path.exists(manual_path):
-                            print(f"   🏥 Enviando manual médico a {sender_id}...")
-                            run_tool("telegram_tool.py", ["--action", "send", "--message", "📘 Aquí tienes la guía de uso para tu recuperación.", "--chat-id", sender_id])
-                            run_tool("telegram_tool.py", ["--action", "send-document", "--file-path", manual_path, "--chat-id", sender_id, "--caption", "Manual de Asistente Médico (IA)"])
+                            print(f"   🛠️ Enviando documentación CNC a {sender_id}...")
+                            run_tool("telegram_tool.py", ["--action", "send", "--message", "📘 Aquí tienes la documentación sobre el flujo de trabajo CNC.", "--chat-id", sender_id])
+                            run_tool("telegram_tool.py", ["--action", "send-document", "--file-path", manual_path, "--chat-id", sender_id, "--caption", "Documentación CNC (Markdown)"])
                         else:
-                            reply_text = "⚠️ El manual PDF no ha sido generado aún. Pide al administrador que ejecute `pdflatex`."
+                            reply_text = "⚠️ El archivo `docs/CNC.md` no se encuentra."
+
+                    elif msg.startswith("/ingestar") or msg.startswith("/ingest"):
+                        filename = msg.split(" ", 1)[1].strip() if " " in msg else ""
+                        if not filename:
+                            reply_text = "⚠️ Uso: /ingestar [nombre_archivo_en_docs]"
+                        else:
+                            print(f"   📥 Ingestando archivo: {filename}")
+                            run_tool("telegram_tool.py", ["--action", "send", "--message", f"⏳ Procesando `{filename}` para RAG...", "--chat-id", sender_id])
+
+                            # 1. Leer el archivo desde el Sandbox
+                            path_in_container = f"/mnt/docs/{filename}"
+                            
+                            if filename.lower().endswith(".pdf"):
+                                read_code = (
+                                    f"from pypdf import PdfReader; "
+                                    f"reader = PdfReader('{path_in_container}'); "
+                                    f"print('\\n'.join([page.extract_text() for page in reader.pages]))"
+                                )
+                            else:
+                                read_code = f"with open('{path_in_container}', 'r', encoding='utf-8') as f: print(f.read())"
+                            
+                            read_res = run_tool("run_sandbox.py", ["--code", read_code])
+
+                            if read_res and read_res.get("status") == "success" and read_res.get("stdout"):
+                                content = read_res.get("stdout")
+                                if not content.strip():
+                                    reply_text = "⚠️ El archivo parece estar vacío o no se pudo extraer texto."
+                                else:
+                                    # 2. Guardar en memoria
+                                    # Prefijamos con el nombre del archivo para dar contexto al RAG
+                                    full_text = f"Contenido del documento '{filename}':\n\n{content}"
+                                    save_res = run_tool("save_memory.py", ["--text", full_text, "--category", "document_knowledge"])
+                                    
+                                    if save_res and save_res.get("status") == "success":
+                                        reply_text = f"✅ Documento `{filename}` agregado a la memoria a largo plazo."
+                                    else:
+                                        reply_text = "❌ Error al guardar en memoria."
+                            else:
+                                error_details = read_res.get("stderr") or read_res.get("message", "No se pudo leer.")
+                                reply_text = f"❌ Error leyendo `{filename}`: {error_details}"
 
                     elif msg.startswith("/resumir_archivo") or msg.startswith("/summarize_file"):
                         filename = msg.split(" ", 1)[1].strip() if " " in msg else ""
@@ -664,25 +711,26 @@ IMPORTANTE:
                     elif msg.startswith("/ayuda") or msg.startswith("/help"):
                         reply_text = (
                             "🤖 *Comandos Disponibles:*\n\n"
-                            "🔹 `/investigar [tema]`: Busca en internet y resume.\n"
-                            "🔹 `/reporte [tema]`: Genera un informe médico/técnico detallado en docs/.\n"
-                            "🔹 `/recordatorio [hora] [msg]`: Configura una alarma diaria.\n"
-                            "🔹 `/traducir [texto/archivo]`: Traduce al español.\n"
-                            "🔹 `/idioma [es/en]`: Cambia el idioma en el que te escucho.\n"
-                            "🔹 `/borrar_recordatorios`: Elimina todas tus alarmas.\n"
-                            "🔹 `/ayuda_medica`: Envía el manual de uso médico en PDF.\n"
-                            "🔹 `/resumir [url]`: Lee una web y te dice de qué trata.\n"
-                            "🔹 `/resumir_archivo [nombre]`: Lee un archivo de `docs/` y lo resume.\n"
-                            "🔹 `/recordar [dato]`: Guarda una nota en mi memoria.\n"
-                            "🔹 `/memorias`: Lista tus últimos recuerdos guardados.\n"
-                            "🔹 `/olvidar [ID]`: Borra un recuerdo específico.\n"
-                            "🔹 `/status`: Muestra CPU y RAM del servidor.\n"
-                            "🔹 `/usuarios`: Muestra los últimos 5 IDs registrados.\n"
-                            "🔹 `/modo [tipo]`: Cambia mi personalidad (serio, sarcastico, profesor...).\n"
-                            "🔹 `/reiniciar`: Borra historial y restablece personalidad.\n"
-                            "🔹 `/broadcast [msg]`: Envía un mensaje a todos (Admin).\n"
-                            "🔹 `/ayuda`: Muestra este menú.\n\n"
-                            "🔹 *Chat normal*: Háblame y te responderé."
+                            "🔹 */investigar [tema]*: Busca en internet y resume.\n"
+                            "🔹 */reporte [tema]*: Genera un informe técnico detallado en docs/.\n"
+                            "🔹 */recordatorio [hora] [msg]*: Configura una alarma diaria.\n"
+                            "🔹 */traducir [texto/archivo]*: Traduce al español.\n"
+                            "🔹 */idioma [es/en]*: Cambia el idioma en el que te escucho.\n"
+                            "🔹 */borrar_recordatorios*: Elimina todas tus alarmas.\n"
+                            "🔹 */ayuda_cnc*: Envía la documentación sobre CNC.\n"
+                            "🔹 */resumir [url]*: Lee una web y te dice de qué trata.\n"
+                            "🔹 */ingestar [archivo]*: Agrega un PDF de `docs/` a la memoria RAG.\n"
+                            "🔹 */resumir_archivo [nombre]*: Lee un archivo de `docs/` y lo resume.\n"
+                            "🔹 */recordar [dato]*: Guarda una nota en mi memoria.\n"
+                            "🔹 */memorias*: Lista tus últimos recuerdos guardados.\n"
+                            "🔹 */olvidar [ID]*: Borra un recuerdo específico.\n"
+                            "🔹 */status*: Muestra CPU y RAM del servidor.\n"
+                            "🔹 */usuarios*: Muestra los últimos 5 IDs registrados.\n"
+                            "🔹 */modo [tipo]*: Cambia mi personalidad (serio, sarcastico, profesor...).\n"
+                            "🔹 */reiniciar*: Borra historial y restablece personalidad.\n"
+                            "🔹 */broadcast [msg]*: Envía un mensaje a todos (Admin).\n"
+                            "🔹 */ayuda*: Muestra este menú.\n\n"
+                            "🔹 *Chat normal*: Háblame sobre PCBs, KiCad o G-Code."
                         )
                     
                     elif msg.startswith("/py "):
@@ -727,15 +775,16 @@ IMPORTANTE:
                         else:
                             reply_text = f"❌ *Error en Sandbox:*\n{res.get('message', 'Error desconocido.')}"
 
-                    elif msg.lower().strip() in ["hola", "hola!", "hi", "hello", "/start"]:
+                    # Detección de saludos mejorada (maneja puntuación y frases como "Hola a todos")
+                    elif msg.strip() and msg.lower().split()[0].strip(".,!¡?") in ["hola", "hi", "hello", "/start"]:
                         reply_text = (
-                            "👋 ¡Hola! Soy un Agente de IA.\n\n"
-                            "-Soy una creación del prof. *César Rodríguez* junto con su asistente de código *Gemini Code Assist*.\n"
-                            "-Mi base de operaciones está en una PC con GNU/Linux en el hogar del profesor.\n"
-                            "-Poseo una memoria persistente local la cual uso para responder tus consultas.\n"
-                            "-Si no consigo la respuesta a tus consultas en mi memoria, lanzo la pregunta a varios LLMs externos mediante el uso de APIs.\n"
-                            "-Mi tarea principal para el cual estoy siendo diseñado tendrá fines educativos y de investigación apoyando al equipo *Tecnología Venezolana*.\n\n"
-                            "Usa /ayuda para ver qué puedo hacer."
+                            "👋 ¡Hola! Soy un Agente de IA especializado en la fabricación de PCBs con CNC.\n\n"
+                            "Fui entrenado por el prof. *César Rodríguez* y el equipo *Tecnología Venezolana* para asistirte en todo el flujo de trabajo, desde el diseño hasta la fabricación:\n\n"
+                            "🔹 *Diseño*: Te puedo guiar en el uso de *KiCad* para crear tus esquemas y layouts.\n"
+                            "🔹 *Optimización*: Puedo ayudarte a programar en *Python* para encontrar las rutas óptimas de tus pistas (auto-routing).\n"
+                            "🔹 *Fabricación*: Soy capaz de generar el *G-Code* final que tu máquina CNC necesita para fresar las placas.\n\n"
+                            "Mi objetivo es demostrar cómo se puede lograr un ecosistema de fabricación de alta tecnología utilizando únicamente software libre.\n\n"
+                            "Usa */ayuda* para ver todos los comandos disponibles."
                         )
 
                     elif msg.lower().strip() in ["gracias", "gracias!", "thanks", "thank you"]:

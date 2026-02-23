@@ -1,0 +1,22 @@
+goal: "Limpiar un proyecto clonado de la plantilla para prepararlo para un nuevo desarrollo."
+version: "1.0"
+
+required_inputs:
+  - name: "none"
+    description: "No requiere entradas. Se ejecuta sobre el proyecto actual."
+
+steps:
+  - step: 1
+    name: "Initialize Project"
+    description: "Ejecuta un script que elimina el historial de Git, limpia las carpetas 'docs' y '.tmp', y reinicializa el repositorio."
+    script_to_invoke: "execution/init_project.py"
+    inputs: [] # No necesita argumentos
+
+expected_outputs:
+  - "Un proyecto limpio, con un nuevo repositorio Git inicializado y sin datos específicos del proyecto anterior."
+
+edge_cases:
+  - case: "El script se ejecuta en un proyecto que no es una plantilla."
+    recovery: "El script procederá con la limpieza. El usuario debe ser advertido de que esta acción es destructiva y no se puede deshacer. Se recomienda hacer un backup antes."
+  - case: "Fallo de permisos al borrar archivos."
+    recovery: "El script reportará los archivos que no pudo eliminar. El usuario deberá borrarlos manualmente."

@@ -3,9 +3,14 @@ import os
 import sys
 import json
 import argparse
-import requests
 import time
-from dotenv import load_dotenv
+
+try:
+    import requests
+    from dotenv import load_dotenv
+except ImportError as e:
+    print(json.dumps({"status": "error", "message": f"Faltan dependencias: {e}. Ejecuta: pip install requests python-dotenv"}))
+    sys.exit(1)
 
 # Cargar entorno para obtener credenciales
 load_dotenv()

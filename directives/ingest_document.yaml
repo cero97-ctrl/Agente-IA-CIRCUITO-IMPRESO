@@ -1,0 +1,42 @@
+goal: "Ingestar (agregar a la memoria RAG) un documento desde la carpeta `docs/`."
+version: "1.0"
+
+required_inputs:
+  - name: "filename"
+    description: "Nombre del archivo a ingestar (debe estar en la carpeta `docs/`)."
+    type: "string"
+    example: "manual_medico.pdf"
+
+steps:
+  - step: 1
+    name: "Leer contenido del archivo en Sandbox"
+    description: "Ejecuta un script de Python dentro de un contenedor Docker para leer el contenido del archivo de forma segura, manejando PDFs y texto plano."
+    script_to_invoke: "execution/run_sandbox.py"
+    inputs:
+      - name: "--code"
+        value: |
+          # Este es un valor dinámico que el orquestador (listen_telegram.py) construye.
+          # Ejemplo para un PDF:
+          from pypdf import PdfReader
+          reader = PdfReader('/mnt/docs/{{filename}}')
+          print('\\n'.join([page.extract_text() for page in reader.pages]))
+    outputs:
+      - name: "file_content"
+        description: "El contenido textual extraído del archivo."
+        value: "{{stdout_from_step_1}}"
+
+  - step: 2
+    name: "Guardar contenido en Memoria Vectorial"
+    description: "Toma el texto extraído y lo guarda en la base de datos ChromaDB para futuras consultas RAG."
+    script_to_invoke: "execution/save_memory.py"
+    inputs:
+      - name: "--text"
+        value: "Contenido del documento '{{filename}}':\n\n{{file_content}}"
+      - name: "--category"
+        value: "document_knowledge"
+
+edge_cases:
+  - case: "El archivo no existe en la carpeta `docs/`."
+    recovery: "El script `run_sandbox.py` fallará con un FileNotFoundError. Notificar al usuario que verifique el nombre del archivo."
+  - case: "El archivo PDF está basado en imágenes (sin texto)."
+    recovery: "El script `run_sandbox.py` devolverá una salida vacía. El orquestador debe detectar esto y notificar al usuario que no se pudo extraer texto."

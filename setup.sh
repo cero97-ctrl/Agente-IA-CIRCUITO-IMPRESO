@@ -3,19 +3,13 @@
 # Exit immediately if a command exits with a non-zero status.
 set -e
 
-ENV_NAME="agent_env"
+ENV_NAME="cnc_bot_env"
 
-echo "🚀 Iniciando configuración automática del Gemini Agent Framework..."
+echo "🚀 Iniciando configuración del entorno para el Bot de CNC..."
 
 # 1. Verificar Conda
 if ! command -v conda &> /dev/null; then
     echo "❌ Error: Conda no está instalado o no está en el PATH."
-    exit 1
-fi
-
-# 2. Verificar Git
-if ! command -v git &> /dev/null; then
-    echo "❌ Error: Git no está instalado. Es necesario para inicializar el repositorio."
     exit 1
 fi
 
@@ -33,17 +27,8 @@ conda activate $ENV_NAME
 echo "⬇️  Instalando dependencias..."
 pip install -r requirements.txt
 
-# 6. Ejecutar Inicialización del Proyecto
-echo "⚙️  Configurando proyecto..."
-read -p "Introduce el nombre de tu nuevo proyecto: " PROJECT_NAME
-
-if [ -z "$PROJECT_NAME" ]; then
-    PROJECT_NAME="Nuevo Proyecto"
-fi
-
-python execution/init_project.py --name "$PROJECT_NAME" --reset-git
-
 echo ""
 echo "✅ ¡Instalación completada!"
-echo "⚠️  IMPORTANTE: No olvides editar el archivo .env con tus API Keys."
-echo "👉 Para volver a entrar: 'conda activate $ENV_NAME' y luego 'python execution/run_agent.py'"
+echo "⚠️  IMPORTANTE: No olvides rellenar el archivo .env con tu TOKEN y CHAT_ID de Telegram."
+echo "👉 Para activar el entorno en el futuro, usa: 'conda activate $ENV_NAME'"
+echo "🤖 Para iniciar el bot, usa: 'python bot.py'"

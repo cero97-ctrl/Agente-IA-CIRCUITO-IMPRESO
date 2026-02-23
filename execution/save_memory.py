@@ -53,7 +53,8 @@ def main():
     }
 
     try:
-        collection.add(
+        # Usamos upsert en lugar de add. Es más robusto y consistente con la PoC.
+        collection.upsert(
             documents=[args.text],
             metadatas=[metadata],
             ids=[memory_id]

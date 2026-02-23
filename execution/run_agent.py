@@ -72,6 +72,7 @@ def main():
                 print("  /check   -> Verificar salud del sistema")
                 print("  /run [script] [args] -> Ejecutar un script específico")
                 print("  /ask [prompt] -> Consultar al LLM real (OpenAI/Anthropic)")
+                print("  /ingest [archivo] -> Ingestar documento de docs/ a la memoria")
                 print("  /telegram -> Iniciar modo escucha de Telegram (Bot)")
                 print("  [texto]  -> Simular chat (echo)\n")
 
@@ -83,6 +84,61 @@ def main():
 
             elif user_input.lower() in ["/memory", "/memories"]:
                 run_script("list_memories.py")
+
+            elif user_input.lower().startswith("/ingest"):
+                parts = user_input.split(maxsplit=1)
+                if len(parts) < 2:
+                    print(f"{Colors.FAIL}Uso: /ingest <nombre_archivo_en_docs>{Colors.ENDC}")
+                    continue
+                filename = parts[1]
+                
+                print(f"{Colors.WARNING}⚙️  Procesando documento {filename}...{Colors.ENDC}")
+                
+                # 1. Leer archivo (usando Sandbox para consistencia con directiva)
+                path_in_container = f"/mnt/docs/{filename}"
+                
+                if filename.lower().endswith(".pdf"):
+                    read_code = (
+                        f"from pypdf import PdfReader; "
+                        f"reader = PdfReader('{path_in_container}'); "
+                        f"print('\\n'.join([page.extract_text() for page in reader.pages]))"
+                    )
+                else:
+                    read_code = f"with open('{path_in_container}', 'r', encoding='utf-8') as f: print(f.read())"
+                
+                # Ejecutar run_sandbox.py
+                sandbox_script = os.path.join("execution", "run_sandbox.py")
+                proc_read = subprocess.run(
+                    [sys.executable, sandbox_script, "--code", read_code],
+                    capture_output=True, text=True
+                )
+                
+                try:
+                    res_read = json.loads(proc_read.stdout)
+                    if res_read.get("status") == "success":
+                        content = res_read.get("stdout", "")
+                        if not content.strip():
+                             print(f"{Colors.FAIL}❌ El archivo está vacío o no se pudo leer.{Colors.ENDC}")
+                        else:
+                            # 2. Guardar en memoria
+                            full_text = f"Contenido del documento '{filename}':\n\n{content}"
+                            save_script = os.path.join("execution", "save_memory.py")
+                            
+                            print(f"{Colors.WARNING}💾 Guardando en memoria vectorial...{Colors.ENDC}")
+                            proc_save = subprocess.run(
+                                [sys.executable, save_script, "--text", full_text, "--category", "document_knowledge"],
+                                capture_output=True, text=True
+                            )
+                            res_save = json.loads(proc_save.stdout)
+                            
+                            if res_save.get("status") == "success":
+                                print(f"{Colors.GREEN}✅ Documento '{filename}' ingestado correctamente.{Colors.ENDC}")
+                            else:
+                                print(f"{Colors.FAIL}❌ Error al guardar: {res_save.get('error_message')}{Colors.ENDC}")
+                    else:
+                        print(f"{Colors.FAIL}❌ Error leyendo archivo: {res_read.get('message')}\nStderr: {res_read.get('stderr')}{Colors.ENDC}")
+                except json.JSONDecodeError:
+                     print(f"{Colors.FAIL}❌ Error decodificando salida del sandbox.{Colors.ENDC}")
 
             elif user_input.lower() in ["/telegram", "telegram"]:
                 run_script("listen_telegram.py")

@@ -196,7 +196,8 @@ def chat_gemini(messages, model="gemini-flash-latest", system_instruction=None):
 
         for msg in messages:
             if msg["role"] == "system":
-                system_instruction = msg["content"]
+                # Si se pasa una instrucción de sistema en los mensajes, tiene prioridad.
+                sys_msg = msg["content"]
             elif msg["role"] == "user":
                 history.append({"role": "user", "parts": [msg["content"]]})
             elif msg["role"] == "assistant":
