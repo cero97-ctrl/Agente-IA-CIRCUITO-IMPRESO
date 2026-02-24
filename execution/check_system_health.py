@@ -96,6 +96,14 @@ def check_docker():
             client = docker.from_env()
             client.ping()
             print(f"{Colors.OKGREEN}✅ Docker Daemon respondiendo{Colors.ENDC}")
+            
+            # Verificar si la imagen del sandbox existe
+            try:
+                client.images.get("agent-sandbox:latest")
+                print(f"{Colors.OKGREEN}✅ Imagen 'agent-sandbox:latest' lista{Colors.ENDC}")
+            except docker.errors.ImageNotFound:
+                print(f"{Colors.WARNING}⚠️  Imagen 'agent-sandbox:latest' NO encontrada. Se usará python:slim (más lento/básico).{Colors.ENDC}")
+                print(f"{Colors.WARNING}   -> Recomendado: python execution/build_sandbox.py{Colors.ENDC}")
         except Exception:
              print(f"{Colors.WARNING}⚠️  Docker instalado pero el Daemon no responde (o librería python 'docker' no instalada){Colors.ENDC}")
     else:

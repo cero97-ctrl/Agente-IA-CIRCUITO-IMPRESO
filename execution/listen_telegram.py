@@ -161,18 +161,50 @@ def main():
                             if not caption.strip(): caption = "Describe qué ves en esta imagen."
                             
                             print(f"   📸 Foto recibida. Descargando ID: {file_id}...")
-                            run_tool("telegram_tool.py", ["--action", "send", "--message", "👀 Analizando imagen...", "--chat-id", sender_id])
                             
                             # Descargar
-                            local_path = os.path.join(".tmp", f"photo_{int(time.time())}.jpg")
+                            filename = f"photo_{int(time.time())}.jpg"
+                            local_path = os.path.join(".tmp", filename)
                             run_tool("telegram_tool.py", ["--action", "download", "--file-id", file_id, "--dest", local_path])
                             
-                            # Analizar
-                            res = run_tool("analyze_image.py", ["--image", local_path, "--prompt", caption])
-                            if res and res.get("status") == "success":
-                                reply_text = f"👁️ *Análisis Visual:*\n{res.get('description')}"
+                            # DECISIÓN: ¿Analizar o Convertir a G-Code?
+                            if "gcode" in caption.lower() or "cnc" in caption.lower():
+                                run_tool("telegram_tool.py", ["--action", "send", "--message", "⚙️ Convirtiendo imagen a G-Code...", "--chat-id", sender_id])
+                                
+                                # Ejecutar conversión en Sandbox
+                                # Leemos el script local para inyectarlo en el contenedor
+                                try:
+                                    with open("execution/img_to_gcode.py", "r") as f:
+                                        script_content = f.read()
+                                    
+                                    # Inyectamos argumentos: nombre de la foto (que está en /mnt/out/) y salida
+                                    injection = f"import sys\nsys.argv = ['img_to_gcode.py', '--image', '{filename}', '--output', '{filename}.nc', '--size', '50']\n"
+                                    full_code = injection + script_content
+                                    
+                                    res_sandbox = run_tool("run_sandbox.py", ["--code", full_code])
+                                    
+                                    # La lógica de respuesta genérica del sandbox (más abajo en el código) no aplica aquí
+                                    # porque estamos dentro del bloque de fotos. Manejamos la respuesta manualmente:
+                                    if res_sandbox and res_sandbox.get("status") == "success":
+                                        # El script imprime la ruta del archivo generado
+                                        reply_text = "✅ Conversión completada. Te envío el archivo G-Code y puedes visualizarlo con `/py execution/visualize_gcode.py ...`"
+                                        # El archivo generado estará en .tmp/{filename}.nc
+                                        generated_file = local_path + ".nc"
+                                        if os.path.exists(generated_file):
+                                            run_tool("telegram_tool.py", ["--action", "send-document", "--file-path", generated_file, "--chat-id", sender_id, "--caption", "G-Code generado desde imagen"])
+                                    else:
+                                        reply_text = f"❌ Error en conversión: {res_sandbox.get('stderr')}"
+                                except Exception as e:
+                                    reply_text = f"❌ Error interno: {e}"
+                            
                             else:
-                                reply_text = f"❌ Error analizando imagen: {res.get('message')}"
+                                # Analizar con IA (Comportamiento por defecto)
+                                run_tool("telegram_tool.py", ["--action", "send", "--message", "👀 Analizando imagen...", "--chat-id", sender_id])
+                                res = run_tool("analyze_image.py", ["--image", local_path, "--prompt", caption])
+                                if res and res.get("status") == "success":
+                                    reply_text = f"👁️ *Análisis Visual:*\n{res.get('description')}"
+                                else:
+                                    reply_text = f"❌ Error analizando imagen: {res.get('message')}"
                                 
                         except Exception as e:
                             reply_text = f"❌ Error procesando foto: {e}"
@@ -734,46 +766,89 @@ IMPORTANTE:
                         )
                     
                     elif msg.startswith("/py "):
-                        code_to_run = msg.split(" ", 1)[1].strip()
-                        print(f"   🐍 Ejecutando en Sandbox: {code_to_run}")
-
-                        res = run_tool("run_sandbox.py", ["--code", code_to_run])
-
-                        reply_text = "" # Resetear
-                        if res and res.get("status") == "success":
-                            stdout = res.get("stdout", "")
-                            stderr = res.get("stderr", "")
-                            
-                            # --- Manejo de Salida de Archivos ---
-                            sent_file = False
-                            clean_stdout_lines = []
-                            if stdout:
-                                for line in stdout.splitlines():
-                                    potential_path_in_container = line.strip()
-                                    if potential_path_in_container.startswith('/mnt/out/'):
-                                        filename = os.path.basename(potential_path_in_container)
-                                        local_path = os.path.join(".tmp", filename)
-                                        if os.path.exists(local_path):
-                                            print(f"   🖼️  Detectado archivo de salida: {local_path}. Enviando...")
-                                            run_tool("telegram_tool.py", ["--action", "send-photo", "--file-path", local_path, "--chat-id", sender_id, "--caption", "Archivo generado por el Sandbox."])
-                                            sent_file = True
-                                            continue # No añadir esta línea a la respuesta de texto
-                                    clean_stdout_lines.append(line)
-                            
-                            clean_stdout = "\n".join(clean_stdout_lines)
-
-                            # --- Manejo de Salida de Texto ---
-                            text_output_exists = clean_stdout or stderr
-                            if text_output_exists:
-                                reply_text = "📦 *Resultado del Sandbox:*\n\n"
-                                if clean_stdout:
-                                    reply_text += f"*Salida:*\n```\n{clean_stdout}\n```\n"
-                                if stderr:
-                                    reply_text += f"*Errores:*\n```\n{stderr}\n```\n"
-                            elif not sent_file: # No hay salida de texto Y no se envió archivo
-                                reply_text = "📦 *Resultado del Sandbox:*\n\n_El código se ejecutó sin producir salida._"
+                        raw_input = msg.split(" ", 1)[1].strip()
+                        
+                        # Seguridad: Bloquear scripts administrativos que requieren acceso al Host
+                        forbidden = ["build_sandbox.py", "listen_telegram.py", "init_project.py", "deploy_to_github.py", "check_system_health.py"]
+                        if any(f in raw_input for f in forbidden):
+                            reply_text = "⛔ *Acción Denegada*: Este script es administrativo y debe ejecutarse en la terminal del servidor (Host), no dentro del Sandbox."
                         else:
-                            reply_text = f"❌ *Error en Sandbox:*\n{res.get('message', 'Error desconocido.')}"
+                            # Lógica para detectar si es un script local (ej: execution/script.py args)
+                            parts = raw_input.split()
+                            script_candidate = parts[0]
+                            script_args = parts[1:]
+                            
+                            # Intentar localizar el script en la ruta actual o en execution/
+                            script_path = None
+                            if os.path.exists(script_candidate) and script_candidate.endswith(".py"):
+                                script_path = script_candidate
+                            elif os.path.exists(os.path.join("execution", script_candidate)) and script_candidate.endswith(".py"):
+                                script_path = os.path.join("execution", script_candidate)
+                                
+                            if script_path:
+                                print(f"   📜 Detectado script local: {script_path}")
+                                try:
+                                    with open(script_path, "r", encoding="utf-8") as f:
+                                        script_content = f.read()
+                                    
+                                    # Inyectar argumentos en sys.argv para que argparse funcione dentro del sandbox
+                                    # El primer argumento de argv suele ser el nombre del script
+                                    argv_injection = f"import sys\nsys.argv = {['script.py'] + script_args}\n"
+                                    code_to_run = argv_injection + script_content
+                                    print(f"   🐍 Enviando script al Sandbox (Docker 🐳) con args: {script_args}")
+                                except Exception as e:
+                                    code_to_run = raw_input # Fallback
+                                    print(f"   ⚠️ Error leyendo script: {e}")
+                            else:
+                                code_to_run = raw_input
+                                print(f"   🐍 Ejecutando código raw en Sandbox (Docker 🐳): {code_to_run}")
+
+                            res = run_tool("run_sandbox.py", ["--code", code_to_run])
+
+                            reply_text = "" # Resetear
+                            if res and res.get("status") == "success":
+                                stdout = res.get("stdout", "")
+                                stderr = res.get("stderr", "")
+                                
+                                # --- Manejo de Salida de Archivos ---
+                                sent_file = False
+                                clean_stdout_lines = []
+                                if stdout:
+                                    for line in stdout.splitlines():
+                                        potential_path_in_container = line.strip()
+                                        if potential_path_in_container.startswith('/mnt/out/'):
+                                            filename = os.path.basename(potential_path_in_container)
+                                            local_path = os.path.join(".tmp", filename)
+                                            if os.path.exists(local_path):
+                                                # Determinar si es imagen o documento
+                                                image_extensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp']
+                                                is_image = any(filename.lower().endswith(ext) for ext in image_extensions)
+                                                
+                                                if is_image:
+                                                    print(f"   🖼️  Detectado archivo de imagen: {local_path}. Enviando...")
+                                                    run_tool("telegram_tool.py", ["--action", "send-photo", "--file-path", local_path, "--chat-id", sender_id, "--caption", f"Imagen generada: {filename}"])
+                                                else:
+                                                    print(f"   📄  Detectado archivo de documento: {local_path}. Enviando...")
+                                                    run_tool("telegram_tool.py", ["--action", "send-document", "--file-path", local_path, "--chat-id", sender_id, "--caption", f"Archivo generado: {filename}"])
+                                                
+                                                sent_file = True
+                                                continue # No añadir esta línea a la respuesta de texto
+                                        clean_stdout_lines.append(line)
+                                
+                                clean_stdout = "\n".join(clean_stdout_lines)
+
+                                # --- Manejo de Salida de Texto ---
+                                text_output_exists = clean_stdout or stderr
+                                if text_output_exists:
+                                    reply_text = "📦 *Resultado del Sandbox:*\n\n"
+                                    if clean_stdout:
+                                        reply_text += f"*Salida:*\n```\n{clean_stdout}\n```\n"
+                                    if stderr:
+                                        reply_text += f"*Errores:*\n```\n{stderr}\n```\n"
+                                elif not sent_file: # No hay salida de texto Y no se envió archivo
+                                    reply_text = "📦 *Resultado del Sandbox:*\n\n_El código se ejecutó sin producir salida._"
+                            else:
+                                reply_text = f"❌ *Error en Sandbox:*\n{res.get('message', 'Error desconocido.')}"
 
                     # Detección de saludos mejorada (maneja puntuación y frases como "Hola a todos")
                     elif msg.strip() and msg.lower().split()[0].strip(".,!¡?") in ["hola", "hi", "hello", "/start"]:
