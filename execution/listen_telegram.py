@@ -167,8 +167,97 @@ def main():
                             local_path = os.path.join(".tmp", filename)
                             run_tool("telegram_tool.py", ["--action", "download", "--file-id", file_id, "--dest", local_path])
                             
-                            # DECISIÓN: ¿Analizar o Convertir a G-Code?
-                            if "gcode" in caption.lower() or "cnc" in caption.lower():
+                            # DECISIÓN: ¿Analizar, G-Code o Gerber?
+                            caption_lower = caption.lower()
+                            
+                            if "paquete" in caption_lower or "fabricar" in caption_lower or "zip" in caption_lower:
+                                run_tool("telegram_tool.py", ["--action", "send", "--message", "🏭 Generando paquete completo de fabricación (Gerber + Drill)...", "--chat-id", sender_id])
+                                
+                                try:
+                                    # 1. Generar Gerber
+                                    with open("execution/img_to_gerber.py", "r") as f: script_gerber = f.read()
+                                    inj_gerber = f"import sys\nsys.argv = ['img_to_gerber.py', '--image', '{filename}', '--output', '{filename}.gbr', '--size', '50']\n"
+                                    res_gerber = run_tool("run_sandbox.py", ["--code", inj_gerber + script_gerber])
+                                    
+                                    # 2. Generar Drill
+                                    with open("execution/img_to_drill.py", "r") as f: script_drill = f.read()
+                                    inj_drill = f"import sys\nsys.argv = ['img_to_drill.py', '--image', '{filename}', '--output', '{filename}.drl', '--size', '50']\n"
+                                    res_drill = run_tool("run_sandbox.py", ["--code", inj_drill + script_drill])
+                                    
+                                    # 3. Empaquetar en ZIP
+                                    if res_gerber.get("status") == "success" and res_drill.get("status") == "success":
+                                        zip_name = f"PCB_Pack_{int(time.time())}.zip"
+                                        with open("execution/create_manufacturing_zip.py", "r") as f: script_zip = f.read()
+                                        
+                                        # Pasamos los nombres de los archivos generados
+                                        files_args = f"'{filename}.gbr', '{filename}.drl'"
+                                        inj_zip = f"import sys\nsys.argv = ['create_manufacturing_zip.py', '--files', {files_args}, '--output', '{zip_name}']\n"
+                                        
+                                        res_zip = run_tool("run_sandbox.py", ["--code", inj_zip + script_zip])
+                                        
+                                        if res_zip.get("status") == "success":
+                                            reply_text = "✅ Paquete de fabricación listo. Contiene Gerber (Cobre) y Excellon (Taladros)."
+                                            generated_zip = os.path.join(".tmp", zip_name)
+                                            if os.path.exists(generated_zip):
+                                                run_tool("telegram_tool.py", ["--action", "send-document", "--file-path", generated_zip, "--chat-id", sender_id, "--caption", "📦 Manufacturing Pack (ZIP)"])
+                                        else:
+                                            reply_text = f"❌ Error al crear el ZIP: {res_zip.get('stderr')}"
+                                    else:
+                                        reply_text = "❌ Error en la generación de archivos intermedios (Gerber o Drill)."
+                                        print(f"Debug Gerber: {res_gerber}")
+                                        print(f"Debug Drill: {res_drill}")
+
+                                except Exception as e:
+                                    reply_text = f"❌ Error interno en el proceso de empaquetado: {e}"
+
+                            elif "gerber" in caption_lower or "pcbway" in caption_lower or "jlcpcb" in caption_lower:
+                                run_tool("telegram_tool.py", ["--action", "send", "--message", "🏭 Generando archivo Gerber (Top Copper) para fabricación industrial...", "--chat-id", sender_id])
+                                
+                                try:
+                                    with open("execution/img_to_gerber.py", "r") as f:
+                                        script_content = f.read()
+                                    
+                                    # Inyectamos argumentos: nombre de la foto y salida .gbr
+                                    injection = f"import sys\nsys.argv = ['img_to_gerber.py', '--image', '{filename}', '--output', '{filename}.gbr', '--size', '50']\n"
+                                    full_code = injection + script_content
+                                    
+                                    res_sandbox = run_tool("run_sandbox.py", ["--code", full_code])
+                                    
+                                    if res_sandbox and res_sandbox.get("status") == "success":
+                                        reply_text = "✅ Archivo Gerber generado. Este archivo (.gbr) corresponde a la capa 'Top Copper' y es compatible con fabricantes como JLCPCB o PCBWay."
+                                        generated_file = local_path + ".gbr"
+                                        if os.path.exists(generated_file):
+                                            run_tool("telegram_tool.py", ["--action", "send-document", "--file-path", generated_file, "--chat-id", sender_id, "--caption", "Gerber Top Copper"])
+                                    else:
+                                        err_msg = res_sandbox.get('stderr') or res_sandbox.get('message') or res_sandbox.get('details') or "Error desconocido"
+                                        reply_text = f"❌ Error en conversión Gerber: {err_msg}"
+                                except Exception as e:
+                                    reply_text = f"❌ Error interno: {e}"
+
+                            elif "taladro" in caption_lower or "drill" in caption_lower or "agujeros" in caption_lower:
+                                run_tool("telegram_tool.py", ["--action", "send", "--message", "🔩 Detectando agujeros y generando archivo Excellon (.drl)...", "--chat-id", sender_id])
+                                
+                                try:
+                                    with open("execution/img_to_drill.py", "r") as f:
+                                        script_content = f.read()
+                                    
+                                    injection = f"import sys\nsys.argv = ['img_to_drill.py', '--image', '{filename}', '--output', '{filename}.drl', '--size', '50']\n"
+                                    full_code = injection + script_content
+                                    
+                                    res_sandbox = run_tool("run_sandbox.py", ["--code", full_code])
+                                    
+                                    if res_sandbox and res_sandbox.get("status") == "success":
+                                        reply_text = "✅ Archivo de Taladrado generado. Este archivo (.drl) contiene las coordenadas de los agujeros detectados."
+                                        generated_file = local_path + ".drl"
+                                        if os.path.exists(generated_file):
+                                            run_tool("telegram_tool.py", ["--action", "send-document", "--file-path", generated_file, "--chat-id", sender_id, "--caption", "Excellon Drill File"])
+                                    else:
+                                        err_msg = res_sandbox.get('stderr') or res_sandbox.get('message') or "Error desconocido"
+                                        reply_text = f"❌ Error detectando taladros: {err_msg}"
+                                except Exception as e:
+                                    reply_text = f"❌ Error interno: {e}"
+
+                            elif "gcode" in caption_lower or "cnc" in caption_lower:
                                 run_tool("telegram_tool.py", ["--action", "send", "--message", "⚙️ Convirtiendo imagen a G-Code...", "--chat-id", sender_id])
                                 
                                 # Ejecutar conversión en Sandbox

@@ -28,7 +28,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Instalar librerías pesadas de Ciencia de Datos
-RUN pip install --no-cache-dir pandas numpy matplotlib requests beautifulsoup4 pypdf
+RUN pip install --no-cache-dir pandas numpy matplotlib requests beautifulsoup4 pypdf opencv-python-headless
 
 WORKDIR /app
 """

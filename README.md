@@ -9,6 +9,7 @@ Se exploran las herramientas y algoritmos necesarios para:
 *   Implementar algoritmos de auto-enrutado (A*) para optimizar las trayectorias de las pistas.
 *   Desarrollar un sistema de auto-leveling para compensar las imperfecciones de la placa.
 *   Comunicarse con la CNC a través de Python.
+*   **NUEVO**: Generar archivos de fabricación industrial (Gerber y Excellon) directamente desde imágenes y empaquetarlos en ZIP para servicios como PCBWay/JLCPCB.
 
 ## Requisitos
 
@@ -20,6 +21,7 @@ Para replicar este flujo de trabajo, necesitarás las siguientes herramientas de
     *   `pathfinding`: Para los algoritmos de búsqueda de rutas (A*).
     *   `pyserial`: Para la comunicación serial con la CNC.
     *   `gerber` / `pcb-tools`: Para la manipulación de archivos Gerber.
+    *   `opencv-python`: Para visión artificial y detección de taladros en imágenes.
 *   **Firmware CNC**: GRBL (recomendado) o similar instalado en el controlador de la máquina.
 
 ## Documentación Detallada

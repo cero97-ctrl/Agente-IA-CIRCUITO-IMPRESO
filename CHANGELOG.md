@@ -30,6 +30,11 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 - **Mejora RAG**: Deduplicación automática de recuerdos en `chat_with_llm.py` para evitar respuestas repetitivas.
 - **Mejora UX**: El comando `/memorias` en Telegram ahora muestra la hora exacta del recuerdo para facilitar la auditoría.
 - **Soporte Multi-Usuario**: `telegram_tool.py` y `listen_telegram.py` actualizados para responder a múltiples usuarios simultáneamente (Mente Colmena).
+- **Generación de Gerber**: Script `img_to_gerber.py` para convertir imágenes a formato RS-274X.
+- **Detección de Taladros**: Script `img_to_drill.py` usando OpenCV para generar archivos Excellon (.drl) desde imágenes.
+- **Empaquetado de Manufactura**: Script `create_manufacturing_zip.py` para crear ZIPs compatibles con PCBWay/JLCPCB.
+- **Patrones de Prueba**: Script `generate_test_pattern.py` para validar la detección de taladros.
+- **Comandos de Telegram**: Soporte para "gerber", "drill" y "paquete" en el bot.
 
 ## [1.0.0] - 2026-02-16
 ### Añadido
