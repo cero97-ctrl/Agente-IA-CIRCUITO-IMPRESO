@@ -30,44 +30,69 @@ def main():
     print(f"🎨 Procesando imagen para CNC...")
 
     try:
+        # --- LÓGICA MEJORADA ---
+        # 1. Binarizar la imagen para un grabado claro
         img = Image.open(args.image).convert("L") # Escala de grises
-        
-        # 1. Detectar bordes
-        edges = img.filter(ImageFilter.FIND_EDGES)
+        # Invertimos la imagen: lo que era oscuro (el logo) se vuelve blanco y será lo que se grabe.
+        img = ImageOps.invert(img)
+        # Binarizamos: todo lo que no sea negro puro se convierte en blanco (255).
+        img = img.point(lambda p: 255 if p > 128 else 0, '1')
         
         # 2. Redimensionar
         aspect = img.height / img.width
         width_mm = args.size
         height_mm = width_mm * aspect
         
-        resolution = 0.2 # mm/pixel (Resolución de escaneo)
+        resolution = 0.25 # mm/pixel (Resolución de escaneo, un poco más gruesa para velocidad)
         w_px = int(width_mm / resolution)
         h_px = int(height_mm / resolution)
         
-        edges = edges.resize((w_px, h_px))
-        pixels = edges.load()
+        img = img.resize((w_px, h_px))
+        pixels = img.load()
         
-        # 3. Generar G-Code
+        # 3. Generar G-Code con lógica de barrido (Raster Scan)
         gcode = [
             "G21 ; Unidades mm",
             "G90 ; Absoluto",
-            "G0 Z5.0 ; Seguridad",
+            "G0 Z2.0 ; Altura de seguridad",
             "M3 S1000 ; Spindle ON"
         ]
         
-        threshold = 40 # Sensibilidad de detección de borde (0-255)
+        z_cut = -0.2
+        z_safe = 1.0
+        feed_rate = 300
         
         for y in range(h_px):
-            y_mm = (h_px - y) * resolution # Invertir Y (origen abajo-izq)
-            for x in range(w_px):
+            y_mm = (h_px - 1 - y) * resolution # Origen abajo-izquierda
+            
+            # Barrido en serpentina para eficiencia
+            x_range = range(w_px) if y % 2 == 0 else range(w_px - 1, -1, -1)
+            
+            is_cutting = False
+            for x in x_range:
                 x_mm = x * resolution
-                val = pixels[x, y]
                 
-                if val > threshold: # Si es un borde visible
-                    gcode.append(f"G1 X{x_mm:.3f} Y{y_mm:.3f} Z-0.2 F300") # Corte
-                    gcode.append(f"G0 Z1.0") # Levantar rápido
+                # Si el pixel es blanco (255), debemos cortar
+                if pixels[x, y] > 0 and not is_cutting:
+                    # Empezar a cortar
+                    gcode.append(f"G0 X{x_mm:.3f} Y{y_mm:.3f}")
+                    gcode.append(f"G1 Z{z_cut} F100")
+                    is_cutting = True
+                elif pixels[x, y] == 0 and is_cutting:
+                    # Parar de cortar
+                    prev_x = x - 1 if y % 2 == 0 else x + 1
+                    prev_x_mm = prev_x * resolution
+                    gcode.append(f"G1 X{prev_x_mm:.3f} Y{y_mm:.3f} F{feed_rate}")
+                    gcode.append(f"G0 Z{z_safe}")
+                    is_cutting = False
+
+            # Si la línea termina y seguíamos cortando, cerramos el segmento
+            if is_cutting:
+                last_x_mm = (w_px - 1 if y % 2 == 0 else 0) * resolution
+                gcode.append(f"G1 X{last_x_mm:.3f} Y{y_mm:.3f} F{feed_rate}")
+                gcode.append(f"G0 Z{z_safe}")
         
-        gcode.append("G0 Z10.0")
+        gcode.append("G0 Z5.0")
         gcode.append("M5")
         gcode.append("M2")
         

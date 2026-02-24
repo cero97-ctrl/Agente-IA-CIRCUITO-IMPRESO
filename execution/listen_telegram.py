@@ -193,7 +193,8 @@ def main():
                                         if os.path.exists(generated_file):
                                             run_tool("telegram_tool.py", ["--action", "send-document", "--file-path", generated_file, "--chat-id", sender_id, "--caption", "G-Code generado desde imagen"])
                                     else:
-                                        reply_text = f"❌ Error en conversión: {res_sandbox.get('stderr')}"
+                                        err_msg = res_sandbox.get('stderr') or res_sandbox.get('message') or res_sandbox.get('details') or "Error desconocido"
+                                        reply_text = f"❌ Error en conversión: {err_msg}"
                                 except Exception as e:
                                     reply_text = f"❌ Error interno: {e}"
                             
@@ -764,6 +765,26 @@ IMPORTANTE:
                             "🔹 */ayuda*: Muestra este menú.\n\n"
                             "🔹 *Chat normal*: Háblame sobre PCBs, KiCad o G-Code."
                         )
+
+                    elif msg.startswith("/send_cnc"):
+                        parts = msg.split()
+                        if len(parts) < 3:
+                            reply_text = "⚠️ Uso: `/send_cnc [puerto] [archivo.nc]`\nEj: `/send_cnc /dev/ttyUSB0 mi_logo.nc`"
+                        else:
+                            port = parts[1]
+                            gcode_file = parts[2]
+                            
+                            # Advertencia de seguridad
+                            run_tool("telegram_tool.py", ["--action", "send", "--message", f"🚨 *¡ATENCIÓN!* 🚨\nIniciando envío de `{gcode_file}` a la CNC en el puerto `{port}`.\n\n*Asegúrate de que la fresa esté en una posición segura.*", "--chat-id", sender_id])
+                            time.sleep(2) # Dar tiempo al usuario para leer
+
+                            # Ejecutar el sender.py en el host (NO en sandbox)
+                            res = run_tool("send_gcode.py", ["--port", port, "--file", gcode_file])
+                            
+                            if res and res.get("status") == "success":
+                                reply_text = f"✅ Proceso de fresado para `{gcode_file}` completado."
+                            else:
+                                reply_text = f"❌ Error durante el envío a la CNC. Revisa los logs de la terminal."
                     
                     elif msg.startswith("/py "):
                         raw_input = msg.split(" ", 1)[1].strip()
