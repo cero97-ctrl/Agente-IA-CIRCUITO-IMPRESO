@@ -3,6 +3,9 @@ import argparse
 import os
 import sys
 import json
+import warnings
+
+warnings.filterwarnings("ignore")
 
 # Intentar importar SDK de Google y Pillow
 try:
@@ -33,13 +36,27 @@ def main():
     try:
         genai.configure(api_key=api_key)
         
-        # Usamos gemini-1.5-flash que es rápido y multimodal
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        
         img = PIL.Image.open(args.image)
         
-        # Generar contenido enviando texto + imagen
-        response = model.generate_content([args.prompt, img])
+        # Estrategia de Fallback: Probar varios modelos de visión si el principal falla
+        models_to_try = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.5-pro']
+        
+        response = None
+        last_error = None
+
+        for model_name in models_to_try:
+            try:
+                model = genai.GenerativeModel(model_name)
+                # Generar contenido enviando texto + imagen
+                response = model.generate_content([args.prompt, img])
+                if response:
+                    break
+            except Exception as e:
+                last_error = e
+                continue
+        
+        if not response:
+            raise Exception(f"Todos los modelos de visión fallaron. Último error: {last_error}")
         
         print(json.dumps({
             "status": "success",

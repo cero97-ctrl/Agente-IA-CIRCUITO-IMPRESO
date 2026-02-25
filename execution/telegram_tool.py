@@ -28,22 +28,28 @@ def send_message(text, target_chat_id=None):
         sys.exit(1)
     
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    payload = {"chat_id": dest_id, "text": text, "parse_mode": "Markdown"}
     
-    try:
-        response = requests.post(url, json=payload, timeout=10)
-        response.raise_for_status()
-        print(json.dumps({"status": "success", "message": "Mensaje enviado."}))
-    except Exception:
-        # Si falla (común por errores de sintaxis Markdown), reintentar como texto plano
+    # Dividir mensajes largos (Límite Telegram: 4096 caracteres)
+    MAX_LEN = 4000
+    chunks = [text[i:i+MAX_LEN] for i in range(0, len(text), MAX_LEN)]
+    
+    for chunk in chunks:
+        payload = {"chat_id": dest_id, "text": chunk, "parse_mode": "Markdown"}
+        
         try:
-            payload.pop("parse_mode", None)
             response = requests.post(url, json=payload, timeout=10)
             response.raise_for_status()
-            print(json.dumps({"status": "success", "message": "Mensaje enviado (texto plano por error de formato)."}))
-        except Exception as e:
-            print(json.dumps({"status": "error", "message": str(e)}))
-            sys.exit(1)
+        except Exception:
+            # Si falla (común por errores de sintaxis Markdown), reintentar como texto plano
+            try:
+                payload.pop("parse_mode", None)
+                response = requests.post(url, json=payload, timeout=10)
+                response.raise_for_status()
+            except Exception as e:
+                print(json.dumps({"status": "error", "message": str(e)}))
+                sys.exit(1)
+                
+    print(json.dumps({"status": "success", "message": "Mensaje(s) enviado(s)."}))
 
 def send_photo(file_path, target_chat_id=None, caption=""):
     """Envía una foto desde una ruta local."""

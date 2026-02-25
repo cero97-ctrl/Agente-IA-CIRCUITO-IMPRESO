@@ -212,7 +212,7 @@ def chat_gemini(messages, model="gemini-flash-latest", system_instruction=None):
         # Estrategia de Fallback: Intentar modelos alternativos si el principal falla
         models_to_try = [model]
         # Lista de modelos seguros para probar en orden si el principal falla
-        fallbacks = ["gemini-1.5-flash", "gemini-pro"]
+        fallbacks = ["gemini-2.0-flash", "gemini-flash-latest", "gemini-pro-latest"]
         for fb in fallbacks:
             if fb != model:
                 models_to_try.append(fb)

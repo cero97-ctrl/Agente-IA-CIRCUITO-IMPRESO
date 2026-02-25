@@ -160,7 +160,7 @@ def main():
                             caption = parts[1] if len(parts) > 1 else "Describe esta imagen."
                             if not caption.strip(): caption = "Describe qué ves en esta imagen."
                             
-                            print(f"   📸 Foto recibida. Descargando ID: {file_id}...")
+                            print(f"   📸 Foto recibida. Caption: '{caption}'")
                             
                             # Descargar
                             filename = f"photo_{int(time.time())}.jpg"
@@ -170,7 +170,34 @@ def main():
                             # DECISIÓN: ¿Analizar, G-Code o Gerber?
                             caption_lower = caption.lower()
                             
-                            if "paquete" in caption_lower or "fabricar" in caption_lower or "zip" in caption_lower:
+                            # Prioridad 1: Diseño de Circuitos (Comando explícito)
+                            if "/diseñar" in caption_lower or "/design" in caption_lower:
+                                # Extraer el prompt real del caption
+                                design_prompt = caption.lower().replace("/diseñar", "").replace("/design", "").strip()
+                                if not design_prompt:
+                                    reply_text = "⚠️ Debes describir la función del circuito en el comentario. Ej: `/diseñar es un amplificador de audio`"
+                                else:
+                                    run_tool("telegram_tool.py", ["--action", "send", "--message", f"🤖 ¡Entendido! Analizando tu dibujo para: '{design_prompt}'.\nDame un momento para pensar como ingeniero...", "--chat-id", sender_id])
+                                    
+                                    # Usamos el script específico de análisis de circuitos
+                                    res = run_tool("analyze_circuit_drawing.py", ["--image", local_path, "--prompt", design_prompt])
+                                    
+                                    if res and res.get("description"):
+                                        # Guardar el diseño JSON para el siguiente paso
+                                        json_content = res.get("description")
+                                        # Limpieza preventiva de Markdown
+                                        if "```" in json_content:
+                                            json_content = json_content.replace("```json", "").replace("```", "").strip()
+
+                                        design_json_path = os.path.join(".tmp", "current_design.json")
+                                        with open(design_json_path, "w") as f:
+                                            f.write(json_content)
+                                        
+                                        reply_text = f"✅ *Análisis Completado (Fase 1)*:\n\nHe interpretado tu diseño y he generado la siguiente lista de componentes y conexiones (netlist).\n\n```json\n{res.get('description')}\n```\n\nEl siguiente paso sería generar el esquemático en KiCad con esta información."
+                                    else:
+                                        reply_text = f"❌ No pude interpretar el circuito. Asegúrate de que el dibujo sea claro. Error: {res}"
+
+                            elif "paquete" in caption_lower or "fabricar" in caption_lower or "zip" in caption_lower:
                                 run_tool("telegram_tool.py", ["--action", "send", "--message", "🏭 Generando paquete completo de fabricación (Gerber + Drill)...", "--chat-id", sender_id])
                                 
                                 try:
@@ -298,6 +325,11 @@ def main():
                                 
                         except Exception as e:
                             reply_text = f"❌ Error procesando foto: {e}"
+
+                    elif msg.startswith("/diseñar") or msg.startswith("/design"):
+                        # Este comando espera una foto adjunta. El bot lo gestionará cuando reciba la foto.
+                        # Aquí solo damos la instrucción si el usuario escribe el comando sin foto.
+                        reply_text = "🤖 Para usar este comando, envía una foto de tu circuito dibujado y en el comentario escribe:\n`/diseñar [descripción de la función]`\n\nEj: `/diseñar es un led intermitente con un 555`"
 
                     # 1.2 DETECCIÓN DE DOCUMENTOS (PDF)
                     elif msg.startswith("__DOCUMENT__:"):
@@ -875,6 +907,68 @@ IMPORTANTE:
                             else:
                                 reply_text = f"❌ Error durante el envío a la CNC. Revisa los logs de la terminal."
                     
+                    elif msg.startswith("/netlist") or msg.startswith("/kicad"):
+                        design_file = os.path.join(".tmp", "current_design.json")
+                        if not os.path.exists(design_file):
+                            reply_text = "⚠️ No hay un diseño activo en memoria. Primero usa `/diseñar` con una foto de tu circuito."
+                        else:
+                            run_tool("telegram_tool.py", ["--action", "send", "--message", "⚙️ Generando Netlist para KiCad...", "--chat-id", sender_id])
+                            
+                            output_net = os.path.join(".tmp", "circuito_generado.kicad_sch")
+                            # Ejecutar el convertidor (en el host, no necesita sandbox pesado)
+                            res = run_tool("json_to_kicad_netlist.py", ["--json", design_file, "--output", output_net])
+                            
+                            if res and res.get("status") == "success" and os.path.exists(output_net):
+                                run_tool("telegram_tool.py", ["--action", "send-document", "--file-path", output_net, "--chat-id", sender_id, "--caption", "KiCad File (.kicad_sch)\nGenerado para KiCad 9.0"])
+                                reply_text = "✅ Archivo generado como `circuito_generado.kicad_sch`. Listo para importar en KiCad 9.0."
+                            else:
+                                err = res.get("message") if res else "Error desconocido"
+                                details = res.get("details", "")
+                                reply_text = f"❌ Error generando la netlist: {err}\n{details}"
+                    
+                    elif msg.startswith("/pcb") or msg.startswith("/layout"):
+                        design_file = os.path.join(".tmp", "current_design.json")
+                        if not os.path.exists(design_file):
+                            reply_text = "⚠️ No hay un diseño activo en memoria. Primero usa `/diseñar` con una foto de tu circuito."
+                        else:
+                            run_tool("telegram_tool.py", ["--action", "send", "--message", "⚙️ Generando archivo PCB (.kicad_pcb) automáticamente...", "--chat-id", sender_id])
+                            
+                            output_script_name = "create_pcb_script.py"
+                            output_script_path = os.path.join(".tmp", output_script_name)
+                            
+                            # 1. Generar el script Python (Generator)
+                            res_gen = run_tool("generate_kicad_pcb_script.py", ["--json", design_file, "--output", output_script_path])
+                            
+                            if res_gen and res_gen.get("status") == "success" and os.path.exists(output_script_path):
+                                # 2. Intentar ejecutarlo en el Sandbox (Backend Mode)
+                                try:
+                                    with open(output_script_path, "r") as f:
+                                        script_content = f.read()
+                                    
+                                    # Ejecutamos el script generado. Si el sandbox tiene 'kicad' instalado, funcionará.
+                                    res_exec = run_tool("run_sandbox.py", ["--code", script_content])
+                                    
+                                    # Verificar si se creó el archivo .kicad_pcb en .tmp (mapeado a /mnt/out)
+                                    expected_pcb = os.path.join(".tmp", "circuito_generado.kicad_pcb")
+                                    
+                                    if res_exec.get("status") == "success" and os.path.exists(expected_pcb):
+                                        run_tool("telegram_tool.py", ["--action", "send-document", "--file-path", expected_pcb, "--chat-id", sender_id, "--caption", "✅ PCB Generado Automáticamente (.kicad_pcb)"])
+                                        reply_text = "¡Éxito! He generado el archivo de placa automáticamente usando el motor de KiCad en el servidor."
+                                    else:
+                                        # Fallback: Si falla la ejecución (ej. no kicad en sandbox), enviamos el script para uso manual
+                                        err_log = res_exec.get("stderr", "") or res_exec.get("message", "")
+                                        run_tool("telegram_tool.py", ["--action", "send-document", "--file-path", output_script_path, "--chat-id", sender_id, "--caption", "Script de KiCad PCB (Python) - Fallback"])
+                                        reply_text = (
+                                            f"⚠️ No pude generar el PCB automáticamente (¿Falta instalar `kicad` en el entorno Docker?).\n"
+                                            f"Error: `{err_log[:100]}...`\n\n"
+                                            "Te envío el script para que lo ejecutes manualmente en KiCad > Consola de Scripting."
+                                        )
+                                except Exception as e:
+                                    reply_text = f"❌ Error interno ejecutando script: {e}"
+                            else:
+                                err = res_gen.get("message") if res_gen else "Error desconocido"
+                                reply_text = f"❌ Error generando script de PCB: {err}"
+
                     elif msg.startswith("/py "):
                         raw_input = msg.split(" ", 1)[1].strip()
                         
@@ -1005,6 +1099,8 @@ IMPORTANTE:
                         res = run_tool("telegram_tool.py", ["--action", "send", "--message", reply_text, "--chat-id", sender_id])
                         if res and res.get("status") == "error":
                             print(f"   ❌ Error al enviar mensaje: {res.get('message')}")
+                            if res.get('details'):
+                                print(f"      Detalle: {res.get('details')}")
                         
                         # 4. Si fue interacción por voz, enviar también audio
                         if is_voice_interaction and reply_text:

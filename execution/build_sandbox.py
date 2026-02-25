@@ -16,19 +16,27 @@ def main():
 
     # Definir el contenido del Dockerfile
     dockerfile_content = """
-FROM python:3.10-slim
+FROM ubuntu:22.04
 
 # Evitar archivos .pyc y buffering
+ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 # Instalar dependencias del sistema necesarias
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    python3-dev \
     build-essential \
+    kicad \
     && rm -rf /var/lib/apt/lists/*
 
+# Asegurar que 'python' apunte a python3 para compatibilidad
+RUN ln -s /usr/bin/python3 /usr/bin/python
+
 # Instalar librerías pesadas de Ciencia de Datos
-RUN pip install --no-cache-dir pandas numpy matplotlib requests beautifulsoup4 pypdf opencv-python-headless
+RUN pip3 install --no-cache-dir pandas numpy matplotlib requests beautifulsoup4 pypdf opencv-python-headless skidl
 
 WORKDIR /app
 """
@@ -44,6 +52,7 @@ WORKDIR /app
         # Construir la imagen
         image, logs = client.images.build(path=project_root, dockerfile="Dockerfile.sandbox", tag="agent-sandbox:latest", rm=True)
         print("\n✅ Imagen 'agent-sandbox:latest' construida exitosamente.")
+        print("   ✅ Soporte para KiCad (pcbnew) y Electrónica incluido.")
         print("   Ahora tus scripts de Python volarán. 🚀")
     except docker.errors.BuildError as e:
         print(f"\n❌ Error en el build: {e}")
