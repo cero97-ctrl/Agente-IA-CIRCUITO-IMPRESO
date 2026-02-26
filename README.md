@@ -1,5 +1,9 @@
 # Diseño e Impresión de Circuitos Impresos Mediante una CNC
 
+## Estado del Proyecto: v1.0 (Estable)
+Este repositorio contiene la versión estable del agente capaz de generar esquemáticos, PCBs y archivos Gerber a partir de imágenes.
+Para ver el detalle de las funcionalidades implementadas, consulta [RELEASE_NOTES_v1.0.md](docs/RELEASE_NOTES_v1.0.md).
+
 ## Descripción del Proyecto
 
 Este proyecto documenta un flujo de trabajo completo y basado en software libre para el diseño y la fabricación de Circuitos Impresos (PCBs) utilizando una máquina CNC. Desde el diseño esquemático en KiCad hasta la generación de G-Code optimizado y la compensación de altura (auto-leveling) con scripts de Python, el objetivo es proporcionar una solución integral y accesible para la creación de PCBs caseras.

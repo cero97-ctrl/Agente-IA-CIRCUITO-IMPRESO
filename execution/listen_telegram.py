@@ -969,6 +969,38 @@ IMPORTANTE:
                                 err = res_gen.get("message") if res_gen else "Error desconocido"
                                 reply_text = f"❌ Error generando script de PCB: {err}"
 
+                    elif msg.startswith("/fabricar") or msg.startswith("/gerbers"):
+                        pcb_file_host = os.path.join(".tmp", "circuito_generado.kicad_pcb")
+                        
+                        if not os.path.exists(pcb_file_host):
+                            reply_text = "⚠️ No hay un archivo de placa (.kicad_pcb) activo. Primero usa `/pcb` para generar uno."
+                        else:
+                            run_tool("telegram_tool.py", ["--action", "send", "--message", "🏭 Generando paquete de fabricación (Gerbers + Drills)...", "--chat-id", sender_id])
+                            
+                            output_zip_name = f"Fab_Pack_{int(time.time())}.zip"
+                            board_file_sandbox = "circuito_generado.kicad_pcb"
+                            
+                            try:
+                                gerber_script_path = os.path.join("execution", "generate_gerbers.py")
+                                with open(gerber_script_path, "r") as f:
+                                    script_content = f.read()
+                                
+                                argv_injection = f"import sys\nimport argparse\nsys.argv = ['generate_gerbers.py', '--board', '/mnt/out/{board_file_sandbox}', '--output-zip', '/mnt/out/{output_zip_name}']\n"
+                                code_to_run = argv_injection + script_content
+                                
+                                res_exec = run_tool("run_sandbox.py", ["--code", code_to_run])
+                                
+                                expected_zip_path = os.path.join(".tmp", output_zip_name)
+                                
+                                if res_exec.get("status") == "success" and os.path.exists(expected_zip_path):
+                                    run_tool("telegram_tool.py", ["--action", "send-document", "--file-path", expected_zip_path, "--chat-id", sender_id, "--caption", "✅ Paquete de Fabricación (ZIP)\nListo para enviar a JLCPCB, PCBWay, etc."])
+                                    reply_text = "¡Éxito! Tu paquete de fabricación está listo."
+                                else:
+                                    err_log = res_exec.get("stderr", "") or res_exec.get("message", "")
+                                    reply_text = f"❌ Error generando los Gerbers: `{err_log[:200]}...`"
+                            except Exception as e:
+                                reply_text = f"❌ Error interno preparando la generación de Gerbers: {e}"
+
                     elif msg.startswith("/py "):
                         raw_input = msg.split(" ", 1)[1].strip()
                         
