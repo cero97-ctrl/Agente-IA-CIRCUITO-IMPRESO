@@ -28,23 +28,12 @@ try:
 except ImportError:
     pass
 
-HISTORY_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".tmp", "chat_history.json")
-
-
-def load_history():
-    if os.path.exists(HISTORY_FILE):
-        try:
-            with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception:
-            return []
-    return []
-
-
-def save_history(history):
-    os.makedirs(os.path.dirname(HISTORY_FILE), exist_ok=True)
-    with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
-        json.dump(history, f, indent=2, ensure_ascii=False)
+# Importar gestor de base de datos
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+try:
+    from db_manager import add_chat_message, get_chat_history, clear_chat_history
+except ImportError:
+    pass # Se manejará si falla al llamar las funciones
 
 def get_memory_context(query):
     """Busca contexto relevante en la memoria vectorial (ChromaDB)."""
@@ -241,6 +230,7 @@ def main():
     parser.add_argument("--provider", choices=["openai", "anthropic", "gemini", "groq"], help="Proveedor de IA.")
     parser.add_argument("--memory-query", help="Texto específico para buscar en memoria (si es diferente al prompt).")
     parser.add_argument("--memory-only", action="store_true", help="Solo consulta la memoria y devuelve el resultado directo sin llamar al LLM.")
+    parser.add_argument("--no-rag", action="store_true", help="Desactiva la búsqueda en memoria (RAG).")
     parser.add_argument("--system", help="Instrucción del sistema (personalidad).")
     args = parser.parse_args()
 
@@ -258,34 +248,30 @@ def main():
 
     # Gestión de historial
     if args.prompt.strip().lower() == "/clear":
-        if os.path.exists(HISTORY_FILE):
-            os.remove(HISTORY_FILE)
+        clear_chat_history()
         print(json.dumps({"content": "Historial de conversación borrado."}))
         return
 
-    history = load_history()
-    # Mantener contexto corto (últimos 10 mensajes) para evitar errores de tokens
-    if len(history) > 10:
-        history = history[-10:]
-
-    history.append({"role": "user", "content": args.prompt})
-
-    # --- RAG: Inyección de Memoria ---
-    # Si se proporciona --memory-query, usarla para la búsqueda. Si no, usar el prompt completo.
-    query_for_memory = args.memory_query if args.memory_query else args.prompt
-    
-    if args.memory_query:
-        print(f"🧠 [RAG] Usando query optimizada: '{query_for_memory}'", file=sys.stderr)
+    add_chat_message("user", args.prompt)
+    history = get_chat_history(limit=10)
 
     # Creamos una copia de los mensajes para enviar al LLM con el contexto inyectado,
     # pero SIN ensuciar el historial guardado en disco.
     messages_for_llm = [dict(msg) for msg in history] # Deep copy simple
-    
-    memory_context = get_memory_context(query_for_memory)
-    if memory_context:
-        # Inyectamos el contexto en el último mensaje del usuario
-        last_msg = messages_for_llm[-1]
-        last_msg['content'] = f"""Usa el siguiente CONTEXTO DE MEMORIA solo si es directamente relevante para la PREGUNTA DEL USUARIO. Si no es relevante, ignóralo por completo.
+
+    # --- RAG: Inyección de Memoria (si no está desactivado) ---
+    if not args.no_rag:
+        # Si se proporciona --memory-query, usarla para la búsqueda. Si no, usar el prompt completo.
+        query_for_memory = args.memory_query if args.memory_query else args.prompt
+        
+        if args.memory_query:
+            print(f"🧠 [RAG] Usando query optimizada: '{query_for_memory}'", file=sys.stderr)
+
+        memory_context = get_memory_context(query_for_memory)
+        if memory_context:
+            # Inyectamos el contexto en el último mensaje del usuario
+            last_msg = messages_for_llm[-1]
+            last_msg['content'] = f"""Usa el siguiente CONTEXTO DE MEMORIA solo si es directamente relevante para la PREGUNTA DEL USUARIO. Si no es relevante, ignóralo por completo.
 
 CONTEXTO DE MEMORIA (Recuerdos relevantes):
 {memory_context}
@@ -340,8 +326,7 @@ PREGUNTA DEL USUARIO:
             result = {"error": str(e)}
 
     if "content" in result:
-        history.append({"role": "assistant", "content": result["content"]})
-        save_history(history)
+        add_chat_message("assistant", result["content"])
 
     # Salida en JSON para que el orquestador la consuma
     print(json.dumps(result))

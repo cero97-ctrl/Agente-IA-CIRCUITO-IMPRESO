@@ -16,30 +16,31 @@ def main():
 
     # Definir el contenido del Dockerfile
     dockerfile_content = """
-FROM ubuntu:22.04
-
-# Evitar archivos .pyc y buffering
-ENV DEBIAN_FRONTEND=noninteractive
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-
-# Instalar dependencias del sistema necesarias
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 \
-    python3-pip \
-    python3-dev \
-    build-essential \
-    kicad \
-    && rm -rf /var/lib/apt/lists/*
-
-# Asegurar que 'python' apunte a python3 para compatibilidad
-RUN ln -s /usr/bin/python3 /usr/bin/python
-
-# Instalar librerías pesadas de Ciencia de Datos
-RUN pip3 install --no-cache-dir pandas numpy matplotlib requests beautifulsoup4 pypdf opencv-python-headless skidl pathfinding
-
-WORKDIR /app
-"""
+ FROM ubuntu:22.04
+ 
+ # Evitar archivos .pyc y buffering
+ ENV DEBIAN_FRONTEND=noninteractive
+ ENV PYTHONDONTWRITEBYTECODE=1
+ ENV PYTHONUNBUFFERED=1
+ 
+ # Instalar dependencias del sistema y librerías de python en una sola capa para optimizar el tamaño de la imagen
+ RUN apt-get update && apt-get install -y --no-install-recommends \
+     python3 \
+     python3-pip \
+     python3-dev \
+     build-essential \
+     kicad \
+     freecad \
+     && pip3 install --no-cache-dir pandas numpy matplotlib requests beautifulsoup4 pypdf opencv-python-headless skidl pathfinding \
+     && apt-get purge -y --auto-remove python3-dev build-essential \
+     && apt-get clean \
+     && rm -rf /var/lib/apt/lists/*
+ 
+ # Asegurar que 'python' apunte a python3 para compatibilidad
+ RUN ln -s /usr/bin/python3 /usr/bin/python
+ 
+ WORKDIR /app
+ """
     
     # Crear un archivo temporal para el contexto de build
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -51,6 +52,7 @@ WORKDIR /app
     try:
         # Construir la imagen
         image, logs = client.images.build(path=project_root, dockerfile="Dockerfile.sandbox", tag="agent-sandbox:latest", rm=True)
+
         print("\n✅ Imagen 'agent-sandbox:latest' construida exitosamente.")
         print("   ✅ Soporte para KiCad (pcbnew) y Electrónica incluido.")
         print("   Ahora tus scripts de Python volarán. 🚀")

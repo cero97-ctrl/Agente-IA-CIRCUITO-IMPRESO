@@ -292,9 +292,16 @@ def generate_kicad_sch(design_json, output_file):
     for comp in components:
         lib_id, fp = classify_component(comp)
         used_libs.add(lib_id)
+        
+        # Fallback: Si no hay 'value', usar 'model' (útil para componentes específicos como BPW34)
+        val = comp.get("value", "")
+        if not val or val == "?":
+            val = comp.get("model", "?")
+            
         comp_infos.append({
             "ref": comp.get("ref", "U?"),
-            "value": comp.get("value", "?"),
+            "value": val,
+            "note": comp.get("note", ""),
             "lib_id": lib_id,
             "footprint": fp,
         })
@@ -363,6 +370,9 @@ def generate_kicad_sch(design_json, output_file):
         lines.append(f'    (property "Value" "{ci["value"]}" (at {cx} {cy + 5.08} 0) {_effects()})')
         lines.append(f'    (property "Footprint" "{ci["footprint"]}" (at {cx} {cy} 0) {_effects(hide=True)})')
         lines.append(f'    (property "Datasheet" "~" (at {cx} {cy} 0) {_effects(hide=True)})')
+        
+        if ci["note"]:
+            lines.append(f'    (property "Note" "{ci["note"]}" (at {cx} {cy + 7.62} 0) {_effects(hide=True)})')
 
         # Pin entries
         pins = PIN_INFO.get(lib_id, [])

@@ -62,11 +62,15 @@ def run_in_sandbox(code_to_run):
         if "FileNotFoundError" in stderr and "/home/" in stderr:
             stderr += "\n\n💡 PISTA: Estás en un Sandbox Docker. Las rutas de tu PC no existen aquí.\n   - Tus documentos están en: /mnt/docs/\n   - Tu carpeta temporal en: /mnt/out/"
 
+        exit_code = result.get('StatusCode', -1)
+        status = "success" if exit_code == 0 else "error"
+
         return {
-            "status": "success",
-            "exit_code": result.get('StatusCode', -1),
+            "status": status,
+            "exit_code": exit_code,
             "stdout": stdout,
-            "stderr": stderr
+            "stderr": stderr,
+            "message": stderr if stderr else stdout
         }
 
     except docker.errors.ContainerError as e:
