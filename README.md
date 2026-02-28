@@ -1,35 +1,41 @@
-# Diseño e Impresión de Circuitos Impresos Mediante una CNC
+# Agente IA de Fabricación Digital.
 
-## Estado del Proyecto: v1.0 (Estable)
-Este repositorio contiene la versión estable del agente capaz de generar esquemáticos, PCBs y archivos Gerber a partir de imágenes.
-Para ver el detalle de las funcionalidades implementadas, consulta [RELEASE_NOTES_v1.0.md](docs/RELEASE_NOTES_v1.0.md).
+## Estado del Proyecto
+El proyecto está en desarrollo activo. Las funcionalidades principales de generación de modelos 3D y PCBs son estables. El versionado se gestiona automáticamente mediante el script `git-update.sh`.
 
 ## Descripción del Proyecto
 
-Este proyecto documenta un flujo de trabajo completo y basado en software libre para el diseño y la fabricación de Circuitos Impresos (PCBs) utilizando una máquina CNC. Desde el diseño esquemático en KiCad hasta la generación de G-Code optimizado y la compensación de altura (auto-leveling) con scripts de Python, el objetivo es proporcionar una solución integral y accesible para la creación de PCBs caseras.
+Este repositorio aloja un **Agente de IA para Fabricación Digital**, accesible a través de un bot de Telegram. El agente está diseñado para ser un asistente de ingeniería que puede interpretar lenguaje natural e imágenes para generar archivos de diseño y fabricación.
 
-Se exploran las herramientas y algoritmos necesarios para:
-*   Convertir diseños de PCB (Gerber) a G-Code.
-*   Implementar algoritmos de auto-enrutado (A*) para optimizar las trayectorias de las pistas.
-*   Desarrollar un sistema de auto-leveling para compensar las imperfecciones de la placa.
-*   Comunicarse con la CNC a través de Python.
-*   **NUEVO**: Generar archivos de fabricación industrial (Gerber y Excellon) directamente desde imágenes y empaquetarlos en ZIP para servicios como PCBWay/JLCPCB.
+El núcleo del sistema utiliza un LLM para la orquestación y scripts deterministas en un entorno Docker para ejecutar tareas complejas de forma fiable, incluyendo el uso de software CAD/ECAD como **FreeCAD** y **KiCad** en modo headless.
+
+## Capacidades Principales
+
+El agente puede realizar las siguientes tareas a través de comandos de Telegram:
+
+### 📐 Diseño CAD 3D (con FreeCAD)
+- **Generación Paramétrica**: Crea modelos 3D (cubos, cilindros, esferas, conos) a partir de descripciones en lenguaje natural (ej. `/freecad un cono de radio 10 y altura 30`).
+- **Exportación Multi-formato**: Genera archivos `.stl` (para impresión 3D), `.step` (formato industrial) y un render realista en `.png`.
+
+### ⚡ Diseño Electrónico (con KiCad)
+- **Interpretación de Dibujos**: Analiza una foto de un circuito dibujado a mano y genera una netlist estructurada en formato JSON.
+- **Generación de Esquemáticos**: Crea un archivo de esquemático (`.kicad_sch`) a partir de la netlist interpretada.
+- **Auto-enrutado de PCB**: Genera un archivo de placa (`.kicad_pcb`) con pistas trazadas automáticamente.
+- **Paquetes de Fabricación**: Crea un archivo `.zip` con todos los archivos Gerber y de taladrado (Drill), listo para enviar a fabricantes como JLCPCB o PCBWay.
+
+### ⚙️ Fabricación CNC
+- **Generación de G-Code**: Convierte imágenes en blanco y negro a G-Code (`.nc`) para fresado.
+- **Comunicación con Máquina**: Incluye un script para enviar G-Code a máquinas CNC que usan el firmware GRBL.
 
 ## Requisitos
 
-Para replicar este flujo de trabajo, necesitarás las siguientes herramientas de software:
-
-*   **KiCad**: Para el diseño esquemático y de PCB. (Incluye la API `pcbnew` de Python).
-*   **Python 3**: Lenguaje de programación principal para los scripts de automatización.
-*   **Librerías de Python**:
-    *   `pathfinding`: Para los algoritmos de búsqueda de rutas (A*).
-    *   `pyserial`: Para la comunicación serial con la CNC.
-    *   `gerber` / `pcb-tools`: Para la manipulación de archivos Gerber.
-    *   `opencv-python`: Para visión artificial y detección de taladros en imágenes.
-*   **Firmware CNC**: GRBL (recomendado) o similar instalado en el controlador de la máquina.
+El sistema está diseñado para ejecutarse en un entorno contenerizado para máxima portabilidad.
+*   **Docker**: Para ejecutar el sandbox que contiene FreeCAD, KiCad y todas las dependencias.
+*   **Python 3.10+**: Para ejecutar la lógica del agente (orquestación, bot de Telegram).
+*   **Cuentas de API**: Claves para los servicios de LLM (Gemini, OpenAI, etc.) configuradas en el archivo `.env`.
 
 ## Documentación Detallada
 
-Para una inmersión profunda en el proceso, las herramientas y los scripts de Python involucrados, consulta el documento principal:
+Para una inmersión profunda en el proceso de diseño de PCBs con CNC, las herramientas y los scripts de Python involucrados, consulta el documento principal que originó esta investigación:
 
-Documentación Completa del Proyecto
+Documentación del Flujo de Trabajo CNC con Python

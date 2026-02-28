@@ -85,6 +85,9 @@ This is a list of the currently implemented workflows. You should select the mos
 *   **`query_memory.yaml`**: "Recuperar información relevante de la memoria a largo plazo basada en una consulta semántica."
 *   **`list_memories.yaml`**: "Listar los recuerdos más recientes almacenados en la memoria a largo plazo sin realizar búsqueda semántica."
 *   **`delete_memory.yaml`**: "Eliminar un recuerdo específico de la memoria a largo plazo mediante su ID."
+*   **`generate_freecad_script.yaml`**: "Generar modelos 3D paramétricos (STL, STEP, PNG) utilizando FreeCAD en modo headless."
+*   **`generate_kicad_pcb_script.yaml`**: "Crear diseños de PCB automatizados y generar archivos de fabricación (Gerbers) mediante scripting de KiCad."
+*   **`git_update.yaml`**: "Gestionar el control de versiones del proyecto, aplicando versionado semántico (SemVer) y sincronizando con el repositorio remoto."
 
 ### Layer 3: Execution (execution/) — Hacer el trabajo
 
