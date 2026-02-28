@@ -34,6 +34,7 @@ def main():
      gnupg \
      wget \
      xvfb \
+     procps \
      libgl1-mesa-dri \
      libgl1-mesa-glx \
      && add-apt-repository -y ppa:freecad-maintainers/freecad-stable \

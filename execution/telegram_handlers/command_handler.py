@@ -732,6 +732,17 @@ def _handle_freecad(msg, sender_id, run_tool):
         expected_png = os.path.join(".tmp", "modelo_3d.png")
         if os.path.exists(expected_png):
             run_tool("telegram_tool.py", ["--action", "send-photo", "--file-path", expected_png, "--chat-id", sender_id, "--caption", "👁️ Vista Previa 3D (Renderizado Nativo)"])
+            # Enviar también como documento para visualización externa (Solicitud del usuario)
+            run_tool("telegram_tool.py", ["--action", "send-document", "--file-path", expected_png, "--chat-id", sender_id, "--caption", "🖼️ Render PNG (Alta Calidad)"])
+        else:
+            # Extraer diagnóstico del stderr para informar al usuario
+            stderr = res_exec.get("stderr", "")
+            diag_msg = "Error desconocido en renderizado."
+            for line in stderr.splitlines():
+                if "Warning:" in line or "Error:" in line:
+                    diag_msg = line.strip()
+            
+            run_tool("telegram_tool.py", ["--action", "send", "--message", f"⚠️ No se generó el archivo PNG de vista previa.\n\n📍 Ubicación esperada: `.tmp/modelo_3d.png`\n🔍 Diagnóstico: `{diag_msg}`", "--chat-id", sender_id])
 
         run_tool("telegram_tool.py", ["--action", "send-document", "--file-path", expected_stl, "--chat-id", sender_id, "--caption", "✅ Modelo 3D (STL) para impresión."])
         return "¡Éxito! He generado tu modelo 3D."
