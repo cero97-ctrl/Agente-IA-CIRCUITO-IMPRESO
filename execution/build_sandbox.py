@@ -23,16 +23,28 @@ def main():
  ENV PYTHONDONTWRITEBYTECODE=1
  ENV PYTHONUNBUFFERED=1
  
- # Instalar dependencias del sistema y librerías de python en una sola capa para optimizar el tamaño de la imagen
+ # 1. Variables de entorno críticas para FreeCAD (solución del PDF)
+ # Para que Python encuentre los módulos de FreeCAD y sepa qué display virtual usar.
+ ENV PYTHONPATH="/usr/lib/freecad/lib:/usr/lib/freecad-python3/lib:${PYTHONPATH}"
+ ENV DISPLAY=:99
+ 
+ # 2. Instalación completa en una sola capa para optimizar
  RUN apt-get update && apt-get install -y --no-install-recommends \
+     software-properties-common \
+     gnupg \
+     wget \
+     xvfb \
+     libgl1-mesa-dri \
+     libgl1-mesa-glx \
+     && add-apt-repository -y ppa:freecad-maintainers/freecad-stable \
+     && add-apt-repository -y ppa:kicad/kicad-8.0-releases \
+     && apt-get update && apt-get install -y --no-install-recommends \
      python3 \
      python3-pip \
-     python3-dev \
-     build-essential \
      kicad \
      freecad \
+     freecad-python3 \
      && pip3 install --no-cache-dir pandas numpy matplotlib requests beautifulsoup4 pypdf opencv-python-headless skidl pathfinding \
-     && apt-get purge -y --auto-remove python3-dev build-essential \
      && apt-get clean \
      && rm -rf /var/lib/apt/lists/*
  
@@ -51,10 +63,10 @@ def main():
 
     try:
         # Construir la imagen
-        image, logs = client.images.build(path=project_root, dockerfile="Dockerfile.sandbox", tag="agent-sandbox:latest", rm=True)
+        image, logs = client.images.build(path=project_root, dockerfile="Dockerfile.sandbox", tag="agent-sandbox:latest", rm=True, nocache=True)
 
         print("\n✅ Imagen 'agent-sandbox:latest' construida exitosamente.")
-        print("   ✅ Soporte para KiCad (pcbnew) y Electrónica incluido.")
+        print("   ✅ Soporte para KiCad (pcbnew), FreeCAD y Electrónica incluido.")
         print("   Ahora tus scripts de Python volarán. 🚀")
     except docker.errors.BuildError as e:
         print(f"\n❌ Error en el build: {e}")

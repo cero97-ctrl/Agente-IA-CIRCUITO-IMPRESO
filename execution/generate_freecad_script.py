@@ -10,51 +10,25 @@ def generate_script(params, output_script_path):
     width = params.get('width', 10)
     height = params.get('height', 10)
     radius = params.get('radius', 5)
+    radius1 = params.get('radius1', 5)
+    radius2 = params.get('radius2', 0)
 
     script_lines = [
         "import sys",
         "import os",
-        "import glob",
         "",
-        "# FreeCAD's Python interpreter needs the path to its libraries",
-        "possible_globs = [",
-        "    '/usr/lib/freecad*/lib',",
-        "    '/usr/lib/x86_64-linux-gnu/freecad*/lib',",
-        "    '/usr/local/lib/freecad*/lib'",
-        "]",
-        "",
-        "found_paths = []",
-        "for g in possible_globs:",
-        "    found_paths.extend(glob.glob(g))",
-        "",
-        "path_added = False",
-        "for p in found_paths:",
-        "    if os.path.exists(os.path.join(p, 'FreeCAD.so')):",
-        "        if p not in sys.path:",
-        "            sys.path.append(p)",
-        "            print(f'Added FreeCAD path: {p}', file=sys.stderr)",
-        "            path_added = True",
-        "            break",
-        "",
+        "# El PYTHONPATH se configura en el Dockerfile, la búsqueda manual ya no es necesaria.",
         "try:",
         "    import FreeCAD",
-        "except ImportError:",
-        "    if not path_added:",
-        "        print('Attempting brute force search for FreeCAD.so in /usr/lib...', file=sys.stderr)",
-        "        for root, dirs, files in os.walk('/usr/lib'):",
-        "            if 'FreeCAD.so' in files:",
-        "                sys.path.append(root)",
-        "                print(f'Found and added: {root}', file=sys.stderr)",
-        "                break",
-        "    try:",
-        "        import FreeCAD",
-        "    except ImportError:",
-        "        print(f'Error: No se pudo importar FreeCAD. sys.path: {sys.path}', file=sys.stderr)",
+        "    import Part",
+        "    import Mesh",
+        "    import MeshPart",
+        "except ImportError as e:",
+        "    print(f'Error: No se pudo importar FreeCAD o sus módulos. PYTHONPATH: {sys.path}', file=sys.stderr)",
+        "    print(f'Detalle del error: {e}', file=sys.stderr)",
+        "    print('Posible causa: La imagen Docker está desactualizada o corrupta.', file=sys.stderr)",
+        "        print('SOLUCIÓN: Ejecuta `python3 execution/build_sandbox.py` para reconstruir la imagen.', file=sys.stderr)",
         "        sys.exit(1)",
-        "",
-        "import Part",
-        "import Mesh",
-        "import MeshPart",
         "",
         "doc = FreeCAD.newDocument('Model')",
         "",
@@ -75,6 +49,20 @@ def generate_script(params, output_script_path):
         script_lines.extend([
             f"obj = doc.addObject('Part::Cylinder', '{obj_name}')",
             f"obj.Radius = {radius}",
+            f"obj.Height = {height}",
+        ])
+    elif shape == 'sphere':
+        obj_name = 'MySphere'
+        script_lines.extend([
+            f"obj = doc.addObject('Part::Sphere', '{obj_name}')",
+            f"obj.Radius = {radius}",
+        ])
+    elif shape == 'cone':
+        obj_name = 'MyCone'
+        script_lines.extend([
+            f"obj = doc.addObject('Part::Cone', '{obj_name}')",
+            f"obj.Radius1 = {radius1}",
+            f"obj.Radius2 = {radius2}",
             f"obj.Height = {height}",
         ])
     else: # Default to a box

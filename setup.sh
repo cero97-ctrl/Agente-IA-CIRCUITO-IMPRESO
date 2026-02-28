@@ -25,8 +25,13 @@ conda activate $ENV_NAME
 
 # 5. Instalar Dependencias
 echo "⬇️  Instalando dependencias..."
+echo "   (Estas son las librerías para el 'orquestador' del bot)"
 pip install -r requirements.txt
 
+echo ""
+echo "🐳 NOTA: Las herramientas de ejecución como KiCad y FreeCAD no se instalan aquí."
+echo "   Se instalan en una imagen Docker aislada para seguridad y estabilidad."
+echo "   Si aún no lo has hecho, construye la imagen con: python3 execution/build_sandbox.py"
 echo ""
 echo "✅ ¡Instalación completada!"
 echo "⚠️  IMPORTANTE: No olvides rellenar el archivo .env con tu TOKEN y CHAT_ID de Telegram."

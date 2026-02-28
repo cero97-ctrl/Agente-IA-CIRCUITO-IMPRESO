@@ -1,0 +1,53 @@
+Este es el error clásico de "biblioteca tímida". Lo que está ocurriendo es que el entorno de Python 
+de tu bot no sabe dónde está instalado FreeCAD, ya que esta herramienta no se instala en la carpeta 
+estándar de librerías de Python (site-packages), sino en su propia carpeta de programa.
+
+Para que tu Agente funcione bien en el Sandbox, debes indicarle explícitamente a Python dónde buscar. 
+Aquí tienes la solución técnica para corregir ese error de importación:
+
+1. Localiza la ruta de FreeCAD
+Primero, asegúrate de que FreeCAD está instalado en el servidor/sandbox. Normalmente, en sistemas Linux 
+(como el que parece indicar tu error /usr/lib/...), la ruta suele ser:
+
+/usr/lib/freecad/lib
+
+O /usr/lib/freecad-python3/lib
+
+2. Corrige el Script de Python (El "Fix")
+Debes añadir estas líneas al principio de tu script de procesamiento de FreeCAD, antes de cualquier 
+import FreeCAD:
+
+import sys
+import os
+
+# 1. Definimos las rutas posibles (ajusta según tu instalación)
+FREECAD_PATH = '/usr/lib/freecad/lib' 
+
+# 2. Agregamos la ruta al sistema para que Python la vea
+if FREECAD_PATH not in sys.path:
+    sys.path.append(FREECAD_PATH)
+
+try:
+    import FreeCAD
+    import Part
+    import Mesh
+    print("¡Éxito! FreeCAD detectado.")
+except ImportError as e:
+    print(f"Error persistente: {e}")
+
+3. Código para el comando "/freecad cilindro"
+Una vez que la importación funcione, el Agente necesita ejecutar algo como esto para generar el archivo 
+que el usuario pidió por Telegram:
+
+# Crear el cilindro con los parámetros recibidos
+doc = FreeCAD.newDocument("CilindroAgente")
+cilindro = Part.makeCylinder(10, 30) # Radio 10, Altura 30
+part_obj = doc.addObject("Part::Feature", "MiCilindro")
+part_obj.Shape = cilindro
+
+# Exportar a STL para que el bot pueda enviarlo por Telegram
+output_path = "/tmp/cilindro.stl"
+Mesh.export([part_obj], output_path)
+doc.recompute()
+
+

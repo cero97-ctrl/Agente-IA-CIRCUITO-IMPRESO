@@ -646,9 +646,11 @@ def _handle_freecad(msg, sender_id, run_tool):
     # 1. Usar LLM para extraer parámetros
     prompt = f"""
     Analiza la siguiente descripción de un objeto 3D y extrae sus parámetros en formato JSON.
-    Los tipos de 'shape' válidos son: "box", "cylinder".
+    Los tipos de 'shape' válidos son: "box", "cylinder", "sphere", "cone".
     Si es una caja, extrae 'length', 'width', 'height'.
     Si es un cilindro, extrae 'radius', 'height'.
+    Si es una esfera, extrae 'radius'.
+    Si es un cono, extrae 'radius1' (radio de la base), 'radius2' (radio superior, 0 si no se especifica), y 'height'.
     Si no se especifica una forma, asume 'box'.
     Si faltan dimensiones, usa 10 como valor por defecto.
     Descripción: "{description}"
@@ -666,6 +668,20 @@ def _handle_freecad(msg, sender_id, run_tool):
       "shape": "cylinder",
       "radius": 5,
       "height": 20
+    }}
+    
+    Ejemplo de salida para "una esfera de 10mm":
+    {{
+      "shape": "sphere",
+      "radius": 10
+    }}
+
+    Ejemplo de salida para "un cono de altura 30 con radio 10":
+    {{
+      "shape": "cone",
+      "radius1": 10,
+      "radius2": 0,
+      "height": 30
     }}
 
     JSON de salida:
@@ -709,6 +725,19 @@ def _handle_freecad(msg, sender_id, run_tool):
 
     expected_stl = os.path.join(".tmp", "modelo_3d.stl")
     if os.path.exists(expected_stl):
+        # --- Generar Vista Previa (Render) ---
+        run_tool("telegram_tool.py", ["--action", "send", "--message", "🎨 Generando vista previa del modelo...", "--chat-id", sender_id])
+        
+        render_script_path = os.path.join("execution", "render_stl.py")
+        if os.path.exists(render_script_path):
+            with open(render_script_path, "r") as f:
+                render_code = f.read()
+            inj_render = "import sys\nsys.argv = ['render_stl.py', '/mnt/out/modelo_3d.stl', '/mnt/out/stl_preview.png']\n"
+            res_render = run_tool("run_sandbox.py", ["--code", inj_render + render_code])
+            expected_png = os.path.join(".tmp", "stl_preview.png")
+            if res_render.get("status") == "success" and os.path.exists(expected_png):
+                run_tool("telegram_tool.py", ["--action", "send-photo", "--file-path", expected_png, "--chat-id", sender_id, "--caption", "👁️ Vista Previa 3D"])
+
         run_tool("telegram_tool.py", ["--action", "send-document", "--file-path", expected_stl, "--chat-id", sender_id, "--caption", "✅ Modelo 3D (STL) para impresión."])
         return "¡Éxito! He generado tu modelo 3D."
     else:
