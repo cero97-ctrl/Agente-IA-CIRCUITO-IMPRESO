@@ -728,15 +728,10 @@ def _handle_freecad(msg, sender_id, run_tool):
         # --- Generar Vista Previa (Render) ---
         run_tool("telegram_tool.py", ["--action", "send", "--message", "🎨 Generando vista previa del modelo...", "--chat-id", sender_id])
         
-        render_script_path = os.path.join("execution", "render_stl.py")
-        if os.path.exists(render_script_path):
-            with open(render_script_path, "r") as f:
-                render_code = f.read()
-            inj_render = "import sys\nsys.argv = ['render_stl.py', '/mnt/out/modelo_3d.stl', '/mnt/out/stl_preview.png']\n"
-            res_render = run_tool("run_sandbox.py", ["--code", inj_render + render_code])
-            expected_png = os.path.join(".tmp", "stl_preview.png")
-            if res_render.get("status") == "success" and os.path.exists(expected_png):
-                run_tool("telegram_tool.py", ["--action", "send-photo", "--file-path", expected_png, "--chat-id", sender_id, "--caption", "👁️ Vista Previa 3D"])
+        # Buscamos el PNG generado directamente por FreeCADGui dentro del sandbox
+        expected_png = os.path.join(".tmp", "modelo_3d.png")
+        if os.path.exists(expected_png):
+            run_tool("telegram_tool.py", ["--action", "send-photo", "--file-path", expected_png, "--chat-id", sender_id, "--caption", "👁️ Vista Previa 3D (Renderizado Nativo)"])
 
         run_tool("telegram_tool.py", ["--action", "send-document", "--file-path", expected_stl, "--chat-id", sender_id, "--caption", "✅ Modelo 3D (STL) para impresión."])
         return "¡Éxito! He generado tu modelo 3D."
