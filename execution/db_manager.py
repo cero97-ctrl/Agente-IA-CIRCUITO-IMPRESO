@@ -3,7 +3,7 @@ import os
 import datetime
 
 # Construir la ruta a la DB de forma robusta para que funcione desde cualquier script
-DB_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".tmp", "agent_data.db")
+DB_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".tmp", "agent_database.db")
 
 def get_db_connection():
     """Crea y devuelve una conexión a la base de datos."""

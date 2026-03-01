@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-import pcbnew
-import os
-import sys
-import json
-import zipfile
-import shutil
-import argparse
+import os, sys, json, zipfile, shutil, argparse, subprocess, time
 
 def generate_gerbers(board_path, output_dir):
     """
@@ -20,7 +14,8 @@ def generate_gerbers(board_path, output_dir):
     popt.SetOutputDirectory(output_dir)
     popt.SetPlotFrameRef(False)
     popt.SetUseGerberProtelExtensions(True)
-    popt.SetExcludeEdgeLayer(True)
+    # SetExcludeEdgeLayer fue eliminado en KiCad 8; la exclusión se maneja
+    # automáticamente al plotear capa por capa.
     popt.SetUseGerberAttributes(False)
     popt.SetGerberPrecision(6)
     popt.SetCreateGerberJobFile(False)
@@ -59,7 +54,7 @@ def zip_gerbers(gerber_dir, zip_path):
             for file in files:
                 zf.write(os.path.join(root, file), os.path.basename(file))
 
-def main():
+def run_gerber_generation():
     parser = argparse.ArgumentParser(description="Genera un paquete de fabricación (Gerber+Drill) desde un archivo .kicad_pcb.")
     parser.add_argument("--board", required=True, help="Ruta al archivo .kicad_pcb de entrada.")
     parser.add_argument("--output-zip", required=True, help="Ruta del archivo ZIP de salida.")
@@ -89,5 +84,30 @@ def main():
         print(json.dumps({"status": "error", "message": str(e)}))
         sys.exit(1)
 
+def start_xvfb():
+    """Inicia el servidor gráfico virtual si no está corriendo."""
+    os.environ['DISPLAY'] = ':99'
+    xvfb_proc = None
+    try:
+        if os.system('pgrep Xvfb > /dev/null') != 0:
+            print('Iniciando servidor gráfico virtual (Xvfb)...', file=sys.stderr)
+            xvfb_proc = subprocess.Popen(['Xvfb', ':99', '-screen', '0', '1024x768x24', '-ac', '+extension', 'GLX', '+render', '-noreset'])
+            time.sleep(3)
+            if xvfb_proc.poll() is not None:
+                raise RuntimeError(f"Xvfb terminó inesperadamente. Código: {xvfb_proc.returncode}")
+    except Exception as e:
+        raise RuntimeError(f"Error fatal al iniciar Xvfb: {e}")
+    return xvfb_proc
+
 if __name__ == "__main__":
-    main()
+    xvfb_proc = None
+    try:
+        xvfb_proc = start_xvfb()
+        import pcbnew # Importar después de iniciar Xvfb
+        run_gerber_generation()
+    except Exception as e:
+        print(json.dumps({"status": "error", "message": str(e)}), file=sys.stderr)
+        sys.exit(1)
+    finally:
+        if xvfb_proc:
+            xvfb_proc.terminate()

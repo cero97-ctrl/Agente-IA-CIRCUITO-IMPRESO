@@ -43,6 +43,7 @@ def main():
      python3 \
      python3-pip \
      kicad \
+     kicad-footprints \
      freecad \
      freecad-python3 \
      && pip3 install --no-cache-dir pandas numpy matplotlib requests beautifulsoup4 pypdf opencv-python-headless skidl pathfinding \

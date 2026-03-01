@@ -31,10 +31,17 @@ El Agente IA ha alcanzado la capacidad de automatizar el ciclo completo de dise�
 *   **Función:** Exporta capas de cobre, máscara, serigrafía y corte.
 *   **Salida:** Paquete ZIP estandarizado para fabricantes (JLCPCB, PCBWay) o CNC.
 
+
 ## Cambios Técnicos Clave
 *   **Entorno Docker:** Se migró de `python:slim` a `ubuntu:22.04` para resolver dependencias de `pcbnew`.
-*   **Compatibilidad API:** Se actualizó el código para soportar la API moderna de KiCad 6/7/8 (ej. `pcbnew.BOARD()`, `wxPoint`).
+*   **Compatibilidad API KiCad 8:** Se migró toda la API de `wxPoint`/`wxSize` a `VECTOR2I` (requerido por KiCad 8.0.9+).
+*   **Dependencias:** Se agregó `kicad-footprints` al Dockerfile para asegurar la carga de librerías estándar.
 *   **Gestión de Archivos:** Implementación de montaje de volúmenes (`/mnt/out`) para intercambio de archivos entre el Agente (Host) y las herramientas CAD (Container).
+*   **Correcciones Críticas:**
+    *   Fix en `pathfinding` (uso de atributos `.x/.y` en GridNode).
+    *   Mejora en fallback de footprints: ahora genera pads THT reales para permitir el enrutado si falla la carga de librería.
+    *   Fix en `/fabricar`: Se eliminó `SetExcludeEdgeLayer()` (removido en KiCad 8) para corregir la generación de Gerbers.
+    *   **Validación DRC:** Se añadió verificación geométrica de cortocircuitos (Track vs Pad) en el script de generación de PCB.
 
 ## Siguientes Pasos (Rama Experimental)
 *   Desarrollo de algoritmos de Auto-enrutado (Pathfinding A*).

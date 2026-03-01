@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-import pcbnew
-import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle, Circle
-import sys
-import os
-import math
+import sys, os, math, subprocess, time, json
 
 def render_board(board_path, output_image):
     if not os.path.exists(board_path):
@@ -96,8 +91,42 @@ def render_board(board_path, output_image):
     plt.savefig(output_image, dpi=100, bbox_inches='tight', facecolor='#101010')
     print(f"Render saved to {output_image}")
 
+def start_xvfb():
+    """Inicia el servidor gráfico virtual si no está corriendo."""
+    os.environ['DISPLAY'] = ':99'
+    xvfb_proc = None
+    try:
+        if os.system('pgrep Xvfb > /dev/null') != 0:
+            print('Iniciando servidor gráfico virtual (Xvfb)...', file=sys.stderr)
+            xvfb_proc = subprocess.Popen(['Xvfb', ':99', '-screen', '0', '1024x768x24', '-ac', '+extension', 'GLX', '+render', '-noreset'])
+            time.sleep(3)
+            if xvfb_proc.poll() is not None:
+                raise RuntimeError(f"Xvfb terminó inesperadamente. Código: {xvfb_proc.returncode}")
+    except Exception as e:
+        raise RuntimeError(f"Error fatal al iniciar Xvfb: {e}")
+    return xvfb_proc
+
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print("Usage: render_pcb.py <board_file> <output_image>")
+    xvfb_proc = None
+    try:
+        xvfb_proc = start_xvfb()
+
+        # Importar librerías que dependen del entorno gráfico AHORA
+        import pcbnew
+        import matplotlib.pyplot as plt
+        from matplotlib.patches import Rectangle, Circle
+
+        if len(sys.argv) < 3:
+            print("Usage: render_pcb.py <board_file> <output_image>")
+            sys.exit(1)
+        
+        render_board(sys.argv[1], sys.argv[2])
+
+    except Exception as e:
+        # Capturar cualquier error para asegurar que se imprima como JSON
+        # y que el proceso termine correctamente.
+        print(json.dumps({"status": "error", "message": str(e)}), file=sys.stderr)
         sys.exit(1)
-    render_board(sys.argv[1], sys.argv[2])
+    finally:
+        if xvfb_proc:
+            xvfb_proc.terminate()
