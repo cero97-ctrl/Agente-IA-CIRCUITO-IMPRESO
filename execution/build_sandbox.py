@@ -46,6 +46,7 @@ def main():
      kicad-footprints \
      freecad \
      freecad-python3 \
+     pcb2gcode \
      && pip3 install --no-cache-dir pandas numpy matplotlib requests beautifulsoup4 pypdf opencv-python-headless skidl pathfinding \
      && apt-get clean \
      && rm -rf /var/lib/apt/lists/*

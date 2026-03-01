@@ -31,6 +31,14 @@ El Agente IA ha alcanzado la capacidad de automatizar el ciclo completo de dise�
 *   **Función:** Exporta capas de cobre, máscara, serigrafía y corte.
 *   **Salida:** Paquete ZIP estandarizado para fabricantes (JLCPCB, PCBWay) o CNC.
 
+### 5. Generación de G-Code (`/gcode`)
+*   **Motor:** `pcb2gcode` (v1.1.4 compatible) + Scripts Python.
+*   **Función:** Convierte archivos Gerber en instrucciones G-Code (.nc) para fresadoras CNC.
+*   **Características:**
+    *   Cálculo de rutas de aislamiento (Isolation Routing).
+    *   Generación de vista previa vectorial (.svg).
+    *   Soporte para taladrado (Drill) y corte de contorno (Edge Cuts).
+    *   Parámetros ajustados para compatibilidad con versiones legacy de `pcb2gcode`.
 
 ## Cambios Técnicos Clave
 *   **Entorno Docker:** Se migró de `python:slim` a `ubuntu:22.04` para resolver dependencias de `pcbnew`.
@@ -42,6 +50,9 @@ El Agente IA ha alcanzado la capacidad de automatizar el ciclo completo de dise�
     *   Mejora en fallback de footprints: ahora genera pads THT reales para permitir el enrutado si falla la carga de librería.
     *   Fix en `/fabricar`: Se eliminó `SetExcludeEdgeLayer()` (removido en KiCad 8) para corregir la generación de Gerbers.
     *   **Validación DRC:** Se añadió verificación geométrica de cortocircuitos (Track vs Pad) en el script de generación de PCB.
+    *   **Integración CNC:** Implementación de `pcb2gcode` en el Sandbox para conversión Gerber -> G-Code.
+    *   **Compatibilidad Legacy:** Ajuste de parámetros de `pcb2gcode` para soportar la versión 1.1.4 (Ubuntu 22.04).
+    *   **Diagnóstico:** Nuevo comando `/versiones` y script `check_tool_versions.py` para auditar el entorno.
 
 ## Siguientes Pasos (Rama Experimental)
 *   Desarrollo de algoritmos de Auto-enrutado (Pathfinding A*).

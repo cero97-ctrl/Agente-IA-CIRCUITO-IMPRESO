@@ -4,6 +4,9 @@ import datetime
 import time
 from execution.listen_telegram_helpers import load_config, save_config, PERSONAS, set_persona
 from execution.db_manager import add_reminder, delete_reminders_for_user, get_all_users, get_reminders_by_user, delete_reminder_by_id
+import shutil
+import glob
+import zipfile
 
 def _handle_investigar(msg, sender_id, run_tool):
     topic = msg.split(" ", 1)[1] if " " in msg else ""
@@ -340,6 +343,29 @@ def _handle_olvidar(msg, sender_id, run_tool):
     else:
         return f"❌ Error al eliminar: {res.get('message', 'Desconocido')}"
 
+def _handle_versiones(msg, sender_id, run_tool):
+    print("   🔍 Verificando versiones de herramientas en el Sandbox...")
+    run_tool("telegram_tool.py", ["--action", "send", "--message", "🔍 Auditando versiones instaladas en el entorno Docker...", "--chat-id", sender_id])
+
+    script_path = os.path.join("execution", "check_tool_versions.py")
+    if not os.path.exists(script_path):
+        return "❌ Error: No encuentro el script `execution/check_tool_versions.py`."
+
+    with open(script_path, "r") as f:
+        code = f.read()
+
+    # Ejecutar dentro del contenedor
+    res = run_tool("run_sandbox.py", ["--code", code])
+
+    if res and res.get("status") == "success":
+        versions = json.loads(res.get("stdout", "{}"))
+        reply = "🛠️ **Versiones Instaladas (Sandbox):**\n\n"
+        for tool, ver in versions.items():
+            reply += f"🔹 *{tool}:* `{ver}`\n"
+        return reply
+    else:
+        return f"❌ Error obteniendo versiones: {res.get('stderr')}"
+
 def _handle_broadcast(msg, sender_id, run_tool):
     announcement = msg.split(" ", 1)[1] if " " in msg else ""
     if not announcement:
@@ -425,6 +451,7 @@ def _handle_ayuda(msg, sender_id, run_tool):
         "🔹 */kicad*: Genera el esquemático KiCad desde un diseño.\n"
         "🔹 */pcb*: Genera el layout PCB desde un diseño.\n"
         "🔹 */fabricar*: Crea el paquete de Gerbers (.zip) para manufactura.\n"
+        "🔹 */gcode*: Genera el G-Code (.nc) para fresado CNC desde los Gerbers.\n"
         "🔹 */send_cnc [puerto] [archivo]*: Envía G-Code a la CNC.\n"
         "🔹 */ayuda_cnc*: Envía la documentación sobre CNC.\n\n"
         "--- *Utilidades Generales* ---\n"
@@ -589,6 +616,82 @@ def _handle_fabricar(msg, sender_id, run_tool):
             return f"❌ Error generando los Gerbers: `{err_log[:200]}...`"
     except Exception as e:
         return f"❌ Error interno preparando la generación de Gerbers: {e}"
+
+def _handle_gcode(msg, sender_id, run_tool):
+    # Encontrar el último paquete de fabricación
+    fab_packs = glob.glob(os.path.join(".out", "Fab_Pack_*.zip"))
+    if not fab_packs:
+        return "⚠️ No se encontró un paquete de fabricación. Primero usa `/fabricar` para generar los Gerbers."
+    
+    latest_fab_pack = max(fab_packs, key=os.path.getctime)
+    print(f"   ⚙️ Usando el paquete de fabricación más reciente: {os.path.basename(latest_fab_pack)}")
+
+    run_tool("telegram_tool.py", ["--action", "send", "--message", f"⚙️ Procesando Gerbers de `{os.path.basename(latest_fab_pack)}` para generar G-Code...", "--chat-id", sender_id])
+
+    # Directorio temporal para descomprimir los Gerbers (DENTRO de .out para que el Sandbox lo vea)
+    temp_gerber_dir = os.path.join(".out", "unzipped_gerbers")
+    if os.path.exists(temp_gerber_dir):
+        shutil.rmtree(temp_gerber_dir)
+    os.makedirs(temp_gerber_dir, exist_ok=True)
+
+    try:
+        with zipfile.ZipFile(latest_fab_pack, 'r') as zip_ref:
+            zip_ref.extractall(temp_gerber_dir)
+        
+        output_nc_filename = f"CNC_Milling_{int(time.time())}.nc"
+        output_nc_path = os.path.join(".out", output_nc_filename)
+
+        # Preparamos la ejecución en el Sandbox
+        gcode_script_path = os.path.join("execution", "generate_gcode.py")
+        if not os.path.exists(gcode_script_path):
+            return "❌ Error: No se encontró el script `execution/generate_gcode.py`."
+
+        with open(gcode_script_path, "r") as f:
+            script_content = f.read()
+
+        # Inyectamos los argumentos para que el script funcione dentro del Docker
+        # Las rutas deben ser las que el contenedor ve (/mnt/out/...)
+        container_input_dir = "/mnt/out/unzipped_gerbers"
+        container_output_file = f"/mnt/out/{output_nc_filename}"
+        
+        argv_injection = (
+            f"import sys\n"
+            f"sys.argv = ['generate_gcode.py', '--input-dir', '{container_input_dir}', '--output-file', '{container_output_file}']\n"
+        )
+        
+        res = run_tool("run_sandbox.py", ["--code", argv_injection + script_content])
+
+        if res and res.get("status") == "success" and os.path.exists(output_nc_path):
+            run_tool("telegram_tool.py", ["--action", "send-document", "--file-path", output_nc_path, "--chat-id", sender_id, "--caption", "✅ G-Code de fresado (.nc) generado."])
+            
+            # Enviar vista previa si existe
+            preview_path_container = res.get("preview")
+            if preview_path_container:
+                preview_filename = os.path.basename(preview_path_container)
+                preview_path_host = os.path.join(".out", preview_filename)
+                if os.path.exists(preview_path_host):
+                    run_tool("telegram_tool.py", ["--action", "send-document", "--file-path", preview_path_host, "--chat-id", sender_id, "--caption", "👁️ Vista Previa de Rutas (SVG)"])
+
+            return "¡Éxito! Tu G-Code está listo. He adjuntado una vista previa SVG para que veas las rutas de corte."
+        else:
+            err_msg = res.get("message", "Error desconocido.") if res else "El script no devolvió respuesta."
+            
+            # Intentar limpiar el mensaje si es JSON (para mostrar el error real de pcb2gcode)
+            try:
+                err_json = json.loads(err_msg)
+                if isinstance(err_json, dict) and "message" in err_json:
+                    err_msg = err_json["message"]
+            except:
+                pass
+
+            # Si el error es FileNotFoundError de pcb2gcode, damos un mensaje más claro
+            if "pcb2gcode" in err_msg and "not found" in err_msg.lower():
+                return "❌ Error: `pcb2gcode` no está instalado en el sandbox. Por favor, ejecuta `python execution/build_sandbox.py` para reconstruir la imagen."
+            return f"❌ Error generando el G-Code:\n`{err_msg[:300]}`"
+
+    finally:
+        if os.path.exists(temp_gerber_dir):
+            shutil.rmtree(temp_gerber_dir)
 
 def _handle_py(msg, sender_id, run_tool):
     raw_input = msg.split(" ", 1)[1].strip()
@@ -912,6 +1015,7 @@ COMMAND_HANDLERS = {
     "/status": _handle_status,
     "/usuarios": _handle_usuarios,
     "/users": _handle_usuarios,
+    "/versiones": _handle_versiones,
     "/modo": _handle_modo,
     "/reiniciar": _handle_reiniciar,
     "/reset": _handle_reiniciar,
@@ -928,6 +1032,7 @@ COMMAND_HANDLERS = {
     "/3d": _handle_freecad,
     "/fabricar": _handle_fabricar,
     "/gerbers": _handle_fabricar,
+    "/gcode": _handle_gcode,
 }
 
 def handle_command_text(msg, sender_id, run_tool):
