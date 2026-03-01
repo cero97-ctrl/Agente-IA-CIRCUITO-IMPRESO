@@ -404,29 +404,52 @@ def _handle_reiniciar(msg, sender_id, run_tool):
     set_persona("default")
     return "🔄 *Sistema reiniciado.*\n\n- Historial de conversación borrado.\n- Personalidad restablecida a 'Default'."
 
+def _handle_limpiar(msg, sender_id, run_tool):
+    print("   🧹 Ejecutando limpieza de archivos temporales...")
+    run_tool("telegram_tool.py", ["--action", "send", "--message", "🧹 Limpiando archivos temporales, cachés y logs...", "--chat-id", sender_id])
+    
+    res = run_tool("clean_project.py", [])
+    
+    if res and res.get("status") == "success":
+        return "✅ Limpieza completada. Se han eliminado archivos temporales y cachés."
+    else:
+        err_msg = res.get("message") if res else "Error desconocido durante la limpieza."
+        return f"❌ Error durante la limpieza: {err_msg}"
+
 def _handle_ayuda(msg, sender_id, run_tool):
     return (
         "🤖 *Comandos Disponibles:*\n\n"
+        "--- *Diseño y Fabricación* ---\n"
+        "🔹 */freecad [descripción]*: Crea un modelo 3D (caja, cono, etc).\n"
+        "🔹 */diseñar* (con foto): Analiza un dibujo de circuito.\n"
+        "🔹 */kicad*: Genera el esquemático KiCad desde un diseño.\n"
+        "🔹 */pcb*: Genera el layout PCB desde un diseño.\n"
+        "🔹 */fabricar*: Crea el paquete de Gerbers (.zip) para manufactura.\n"
+        "🔹 */send_cnc [puerto] [archivo]*: Envía G-Code a la CNC.\n"
+        "🔹 */ayuda_cnc*: Envía la documentación sobre CNC.\n\n"
+        "--- *Utilidades Generales* ---\n"
         "🔹 */investigar [tema]*: Busca en internet y resume.\n"
         "🔹 */reporte [tema]*: Genera un informe técnico detallado en docs/.\n"
-        "🔹 */recordatorio [hora] [msg]*: Configura una alarma diaria.\n"
-        "🔹 */traducir [texto/archivo]*: Traduce al español.\n"
-        "🔹 */idioma [es/en]*: Cambia el idioma en el que te escucho.\n"
-        "🔹 */borrar_recordatorios*: Elimina todas tus alarmas.\n"
-        "🔹 */ayuda_cnc*: Envía la documentación sobre CNC.\n"
         "🔹 */resumir [url]*: Lee una web y te dice de qué trata.\n"
-        "🔹 */ingestar [archivo]*: Agrega un PDF de `docs/` a la memoria RAG.\n"
         "🔹 */resumir_archivo [nombre]*: Lee un archivo de `docs/` y lo resume.\n"
+        "🔹 */traducir [texto/archivo]*: Traduce al español.\n\n"
+        "--- *Memoria y Recordatorios* ---\n"
         "🔹 */recordar [dato]*: Guarda una nota en mi memoria.\n"
         "🔹 */memorias*: Lista tus últimos recuerdos guardados.\n"
         "🔹 */olvidar [ID]*: Borra un recuerdo específico.\n"
+        "🔹 */ingestar [archivo]*: Agrega un PDF de `docs/` a la memoria RAG.\n"
+        "🔹 */recordatorio [HH:MM] [msg]*: Configura una alarma diaria.\n"
+        "🔹 */mis_recordatorios*: Muestra tus alarmas activas.\n"
+        "🔹 */borrar_recordatorio [ID]*: Elimina una alarma específica.\n\n"
+        "--- *Administración y Estado* ---\n"
         "🔹 */status*: Muestra CPU y RAM del servidor.\n"
-        "🔹 */usuarios*: Muestra los últimos 5 IDs registrados.\n"
-        "🔹 */modo [tipo]*: Cambia mi personalidad (serio, sarcastico, profesor...).\n"
+        "🔹 */limpiar*: Elimina archivos temporales y cachés.\n"
         "🔹 */reiniciar*: Borra historial y restablece personalidad.\n"
+        "🔹 */modo [tipo]*: Cambia mi personalidad (serio, sarcastico...).\n"
+        "🔹 */idioma [es/en]*: Cambia el idioma en el que te escucho.\n"
+        "🔹 */usuarios*: Muestra los últimos 5 IDs registrados.\n"
         "🔹 */broadcast [msg]*: Envía un mensaje a todos (Admin).\n"
-        "🔹 */ayuda*: Muestra este menú.\n\n"
-        "🔹 *Chat normal*: Háblame sobre PCBs, KiCad o G-Code."
+        "🔹 */ayuda*: Muestra este menú."
     )
 
 def _handle_send_cnc(msg, sender_id, run_tool):
@@ -450,7 +473,7 @@ def _handle_kicad(msg, sender_id, run_tool):
         return "⚠️ No hay un diseño activo en memoria. Primero usa `/diseñar` con una foto de tu circuito."
 
     run_tool("telegram_tool.py", ["--action", "send", "--message", "⚙️ Generando Netlist para KiCad...", "--chat-id", sender_id])
-    output_net = os.path.join(".tmp", "circuito_generado.kicad_sch")
+    output_net = os.path.join(".out", "circuito_generado.kicad_sch")
     res = run_tool("json_to_kicad_netlist.py", ["--json", design_file, "--output", output_net])
 
     if not (res and res.get("status") == "success" and os.path.exists(output_net)):
@@ -468,7 +491,7 @@ def _handle_kicad(msg, sender_id, run_tool):
         
         inj_render = "import sys\nsys.argv = ['render_sch.py', '/mnt/out/circuito_generado.kicad_sch', '/mnt/out/sch_preview.png']\n"
         res_render = run_tool("run_sandbox.py", ["--code", inj_render + render_code])
-        expected_png = os.path.join(".tmp", "sch_preview.png")
+        expected_png = os.path.join(".out", "sch_preview.png")
         if res_render.get("status") == "success" and os.path.exists(expected_png):
             run_tool("telegram_tool.py", ["--action", "send-photo", "--file-path", expected_png, "--chat-id", sender_id, "--caption", "👁️ Vista Previa Esquemático"])
 
@@ -510,7 +533,7 @@ def _handle_pcb(msg, sender_id, run_tool):
                         routing_summary = f"📊 Resumen: {summary_data}"
                     break
 
-        expected_pcb = os.path.join(".tmp", "circuito_generado.kicad_pcb")
+        expected_pcb = os.path.join(".out", "circuito_generado.kicad_pcb")
         if res_exec.get("status") == "success" and os.path.exists(expected_pcb):
             run_tool("telegram_tool.py", ["--action", "send-document", "--file-path", expected_pcb, "--chat-id", sender_id, "--caption", "✅ PCB Generado Automáticamente (.kicad_pcb)"])
             
@@ -521,7 +544,7 @@ def _handle_pcb(msg, sender_id, run_tool):
                     render_code = f.read()
                 inj_render = "import sys\nsys.argv = ['render_pcb.py', '/mnt/out/circuito_generado.kicad_pcb', '/mnt/out/pcb_preview.png']\n"
                 res_render = run_tool("run_sandbox.py", ["--code", inj_render + render_code])
-                expected_png = os.path.join(".tmp", "pcb_preview.png")
+                expected_png = os.path.join(".out", "pcb_preview.png")
                 if res_render.get("status") == "success" and os.path.exists(expected_png):
                     final_caption = "👁️ Vista Previa (Top Layer)"
                     if routing_summary:
@@ -540,7 +563,7 @@ def _handle_pcb(msg, sender_id, run_tool):
         return f"❌ Error interno ejecutando script: {e}"
 
 def _handle_fabricar(msg, sender_id, run_tool):
-    pcb_file_host = os.path.join(".tmp", "circuito_generado.kicad_pcb")
+    pcb_file_host = os.path.join(".out", "circuito_generado.kicad_pcb")
     if not os.path.exists(pcb_file_host):
         return "⚠️ No hay un archivo de placa (.kicad_pcb) activo. Primero usa `/pcb` para generar uno."
 
@@ -556,7 +579,7 @@ def _handle_fabricar(msg, sender_id, run_tool):
         argv_injection = f"import sys\nimport argparse\nsys.argv = ['generate_gerbers.py', '--board', '/mnt/out/{board_file_sandbox}', '--output-zip', '/mnt/out/{output_zip_name}']\n"
         code_to_run = argv_injection + script_content
         res_exec = run_tool("run_sandbox.py", ["--code", code_to_run])
-        expected_zip_path = os.path.join(".tmp", output_zip_name)
+        expected_zip_path = os.path.join(".out", output_zip_name)
 
         if res_exec.get("status") == "success" and os.path.exists(expected_zip_path):
             run_tool("telegram_tool.py", ["--action", "send-document", "--file-path", expected_zip_path, "--chat-id", sender_id, "--caption", "✅ Paquete de Fabricación (ZIP)\nListo para enviar a JLCPCB, PCBWay, etc."])
@@ -614,7 +637,7 @@ def _handle_py(msg, sender_id, run_tool):
             potential_path = line.strip()
             if potential_path.startswith('/mnt/out/'):
                 filename = os.path.basename(potential_path)
-                local_path = os.path.join(".tmp", filename)
+                local_path = os.path.join(".out", filename)
                 if os.path.exists(local_path):
                     is_image = any(filename.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.bmp'])
                     action = "send-photo" if is_image else "send-document"
@@ -643,14 +666,39 @@ def _handle_freecad(msg, sender_id, run_tool):
 
     run_tool("telegram_tool.py", ["--action", "send", "--message", f"🧠 Interpretando tu diseño 3D: '{description}'...", "--chat-id", sender_id])
 
+    # 0. Cargar contexto anterior (si existe)
+    last_params_path = os.path.join(".tmp", "last_3d_params.json")
+    last_params_context = "Ninguno"
+    if os.path.exists(last_params_path):
+        try:
+            with open(last_params_path, "r") as f:
+                last_params_context = f.read()
+        except:
+            pass
+
     # 1. Usar LLM para extraer parámetros
     prompt = f"""
     Analiza la siguiente descripción de un objeto 3D y extrae sus parámetros en formato JSON.
-    Los tipos de 'shape' válidos son: "box", "cylinder", "sphere", "cone".
+    
+    CONTEXTO ACTUAL (Último objeto creado):
+    {last_params_context}
+    
+    INSTRUCCIONES:
+    - Si el usuario pide una MODIFICACIÓN (ej: "hazlo más alto", "ahora rojo", "cambia radio a 5"), toma el JSON del CONTEXTO ACTUAL y modifica solo los valores mencionados.
+    - Si el usuario pide un OBJETO NUEVO (ej: "crea un cubo", "un cilindro"), ignora el contexto y genera un JSON nuevo.
+
+    Los tipos de 'shape' válidos son: "box", "cylinder", "sphere", "cone", "torus".
     Si es una caja, extrae 'length', 'width', 'height'.
     Si es un cilindro, extrae 'radius', 'height'.
     Si es una esfera, extrae 'radius'.
     Si es un cono, extrae 'radius1' (radio de la base), 'radius2' (radio superior, 0 si no se especifica), y 'height'.
+    Si es un toroide (dona), extrae 'radius1' (radio mayor/anillo) y 'radius2' (radio menor/tubo).
+    OPCIONAL: Si el usuario menciona un agujero, hueco o perforación central (ej: "con un agujero de 5mm"), extrae 'hole_radius'.
+    OPCIONAL: Si el usuario menciona un agregado, saliente, pivote o vástago superior (ej: "con un pivote de 5mm"), extrae 'stud_radius' y 'stud_height' (si no se dice altura, usa 10).
+    OPCIONAL: Si el usuario menciona rotación (ej: "rotar 45 grados en X"), extrae 'rotate_axis' ('x','y','z') y 'rotate_angle' (grados).
+    OPCIONAL: Si el usuario menciona redondear bordes, suavizar o filete (ej: "bordes redondeados de 2mm"), extrae 'fillet_radius'.
+    OPCIONAL: Si el usuario menciona un color (ej: "rojo", "azul"), extrae 'color' (en inglés: 'Red', 'Blue', 'Green', 'Yellow', 'Cyan', 'Magenta', 'White', 'Black', 'Grey').
+    OPCIONAL: Si el usuario pide mostrar ejes, coordenadas, origen o referencia (ej: "muestra los ejes", "con ejes"), extrae 'draw_axes': true.
     Si no se especifica una forma, asume 'box'.
     Si faltan dimensiones, usa 10 como valor por defecto.
     Descripción: "{description}"
@@ -683,6 +731,60 @@ def _handle_freecad(msg, sender_id, run_tool):
       "radius2": 0,
       "height": 30
     }}
+    
+    Ejemplo de salida para "un cono truncado de radio 20 a 5 y altura 50":
+    {{
+      "shape": "cone",
+      "radius1": 20,
+      "radius2": 5,
+      "height": 50
+    }}
+    
+    Ejemplo de salida para "una dona de radio 20 y grosor 5":
+    {{
+      "shape": "torus",
+      "radius1": 20,
+      "radius2": 5
+    }}
+    
+    Ejemplo de salida para "un cilindro de radio 10 y altura 30 con un agujero de 4mm":
+    {{
+      "shape": "cylinder",
+      "radius": 10,
+      "height": 30,
+      "hole_radius": 4
+    }}
+    
+    Ejemplo de salida para "un cubo de 20mm con un pivote de 5mm arriba":
+    {{
+      "shape": "box",
+      "length": 20,
+      "width": 20,
+      "height": 20,
+      "stud_radius": 5,
+      "stud_height": 10
+    }}
+    
+    Ejemplo de salida para "un cubo rojo de 20mm rotado 45 grados en Z con bordes redondeados de 2mm":
+    {{
+      "shape": "box",
+      "length": 20,
+      "width": 20,
+      "height": 20,
+      "color": "Red",
+      "rotate_axis": "z",
+      "rotate_angle": 45,
+      "fillet_radius": 2
+    }}
+    
+    Ejemplo de salida para "un cono de radio 10 mostrando los ejes":
+    {{
+      "shape": "cone",
+      "radius1": 10,
+      "radius2": 0,
+      "height": 10,
+      "draw_axes": true
+    }}
 
     JSON de salida:
     """
@@ -701,6 +803,10 @@ def _handle_freecad(msg, sender_id, run_tool):
                 params_json_str = content.strip()
             
             json.loads(params_json_str) # Validar
+            
+            # Guardar contexto para la próxima
+            with open(last_params_path, "w") as f:
+                f.write(params_json_str)
         except (IndexError, json.JSONDecodeError):
              return f"❌ No pude interpretar los parámetros del diseño. El modelo devolvió: {llm_res['content']}"
     else:
@@ -723,13 +829,20 @@ def _handle_freecad(msg, sender_id, run_tool):
         err_log = res_exec.get("stderr", "") or res_exec.get("message", "")
         return f"❌ Error ejecutando el script de FreeCAD en el Sandbox: `{err_log[:200]}...`"
 
-    expected_stl = os.path.join(".tmp", "modelo_3d.stl")
+    # Extraer propiedades físicas del log
+    phys_props = ""
+    if res_exec.get("stdout"):
+        for line in res_exec.get("stdout").splitlines():
+            if "PROPERTIES:" in line:
+                phys_props = line.replace("PROPERTIES:", "").strip()
+
+    expected_stl = os.path.join(".out", "modelo_3d.stl")
     if os.path.exists(expected_stl):
         # --- Generar Vista Previa (Render) ---
         run_tool("telegram_tool.py", ["--action", "send", "--message", "🎨 Generando vista previa del modelo...", "--chat-id", sender_id])
         
         # Buscamos el PNG generado directamente por FreeCADGui dentro del sandbox
-        expected_png = os.path.join(".tmp", "modelo_3d.png")
+        expected_png = os.path.join(".out", "modelo_3d.png")
         if os.path.exists(expected_png):
             run_tool("telegram_tool.py", ["--action", "send-photo", "--file-path", expected_png, "--chat-id", sender_id, "--caption", "👁️ Vista Previa 3D (Renderizado Nativo)"])
             # Enviar también como documento para visualización externa (Solicitud del usuario)
@@ -742,9 +855,24 @@ def _handle_freecad(msg, sender_id, run_tool):
                 if "Warning:" in line or "Error:" in line:
                     diag_msg = line.strip()
             
-            run_tool("telegram_tool.py", ["--action", "send", "--message", f"⚠️ No se generó el archivo PNG de vista previa.\n\n📍 Ubicación esperada: `.tmp/modelo_3d.png`\n🔍 Diagnóstico: `{diag_msg}`", "--chat-id", sender_id])
+            run_tool("telegram_tool.py", ["--action", "send", "--message", f"⚠️ No se generó el archivo PNG de vista previa.\n\n📍 Ubicación esperada: `.out/modelo_3d.png`\n🔍 Diagnóstico: `{diag_msg}`", "--chat-id", sender_id])
 
-        run_tool("telegram_tool.py", ["--action", "send-document", "--file-path", expected_stl, "--chat-id", sender_id, "--caption", "✅ Modelo 3D (STL) para impresión."])
+        # Enviar STL
+        caption_stl = "✅ Modelo 3D (STL) para impresión."
+        if phys_props:
+            caption_stl += f"\n\n📏 {phys_props}"
+        run_tool("telegram_tool.py", ["--action", "send-document", "--file-path", expected_stl, "--chat-id", sender_id, "--caption", caption_stl])
+
+        # Enviar OBJ si existe
+        expected_obj = os.path.join(".out", "modelo_3d.obj")
+        if os.path.exists(expected_obj):
+            run_tool("telegram_tool.py", ["--action", "send-document", "--file-path", expected_obj, "--chat-id", sender_id, "--caption", "📦 Modelo 3D (OBJ)"])
+            
+        # Enviar STEP si existe
+        expected_step = os.path.join(".out", "modelo_3d.step")
+        if os.path.exists(expected_step):
+            run_tool("telegram_tool.py", ["--action", "send-document", "--file-path", expected_step, "--chat-id", sender_id, "--caption", "⚙️ Modelo CAD (STEP)"])
+
         return "¡Éxito! He generado tu modelo 3D."
     else:
         return "⚠️ Se ejecutó el script pero no se encontraron los archivos de salida."
@@ -787,6 +915,8 @@ COMMAND_HANDLERS = {
     "/modo": _handle_modo,
     "/reiniciar": _handle_reiniciar,
     "/reset": _handle_reiniciar,
+    "/limpiar": _handle_limpiar,
+    "/clean": _handle_limpiar,
     "/ayuda": _handle_ayuda,
     "/help": _handle_ayuda,
     "/send_cnc": _handle_send_cnc,

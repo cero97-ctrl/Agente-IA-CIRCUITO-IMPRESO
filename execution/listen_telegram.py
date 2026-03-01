@@ -5,6 +5,7 @@ import json
 import sys
 import os
 import datetime
+import sqlite3
 from dotenv import load_dotenv
 
 # Añadir directorio raíz al path para permitir imports absolutos

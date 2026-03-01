@@ -68,7 +68,10 @@ def main():
     # Paths are relative to the sandbox environment
     board_file = args.board
     output_zip_file = args.output_zip
-    gerber_temp_dir = "gerbers_temp"
+    
+    # Usar un directorio temporal en la misma ubicación que la salida (por ejemplo, /mnt/out)
+    # Esto asegura que los archivos temporales sean visibles en .out/ y se limpien con /limpiar
+    gerber_temp_dir = os.path.join(os.path.dirname(output_zip_file), "gerbers_temp")
 
     if not os.path.exists(board_file):
         print(json.dumps({"status": "error", "message": f"Archivo de placa no encontrado: {board_file}"}))

@@ -23,11 +23,11 @@ def run_in_sandbox(code_to_run):
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(script_dir)
     docs_path = os.path.join(project_root, "docs")
-    tmp_path = os.path.join(project_root, ".tmp")
+    out_path = os.path.join(project_root, ".out")
     
     # Asegurar que existan
     os.makedirs(docs_path, exist_ok=True)
-    os.makedirs(tmp_path, exist_ok=True)
+    os.makedirs(out_path, exist_ok=True)
 
     container = None
     try:
@@ -48,7 +48,7 @@ def run_in_sandbox(code_to_run):
             cpu_shares=512,
             volumes={
                 docs_path: {'bind': '/mnt/docs', 'mode': 'rw'}, # Tus docs (Lectura/Escritura)
-                tmp_path: {'bind': '/mnt/out', 'mode': 'rw'}    # Salida temporal (Lectura/Escritura)
+                out_path: {'bind': '/mnt/out', 'mode': 'rw'}    # Salida de archivos generados
             }
         )
 

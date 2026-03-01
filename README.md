@@ -16,6 +16,7 @@ El agente puede realizar las siguientes tareas a través de comandos de Telegram
 ### 📐 Diseño CAD 3D (con FreeCAD)
 - **Generación Paramétrica**: Crea modelos 3D (cubos, cilindros, esferas, conos) a partir de descripciones en lenguaje natural (ej. `/freecad un cono de radio 10 y altura 30`).
 - **Exportación Multi-formato**: Genera archivos `.stl` (para impresión 3D), `.step` (formato industrial) y un render realista en `.png`.
+- **Análisis Físico**: Calcula y reporta el volumen y la masa estimada (PLA) del objeto generado.
 
 ### ⚡ Diseño Electrónico (con KiCad)
 - **Interpretación de Dibujos**: Analiza una foto de un circuito dibujado a mano y genera una netlist estructurada en formato JSON.

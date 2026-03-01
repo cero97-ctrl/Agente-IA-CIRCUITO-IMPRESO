@@ -12,6 +12,14 @@ def generate_script(params, output_script_path):
     radius = params.get('radius', 5)
     radius1 = params.get('radius1', 5)
     radius2 = params.get('radius2', 0)
+    hole_radius = params.get('hole_radius', 0)
+    stud_radius = params.get('stud_radius', 0)
+    stud_height = params.get('stud_height', 10)
+    rotate_axis = params.get('rotate_axis', None)
+    rotate_angle = params.get('rotate_angle', 0)
+    fillet_radius = params.get('fillet_radius', 0)
+    color_name = params.get('color', 'White')
+    draw_axes = params.get('draw_axes', False)
 
     script_lines = [
         "import sys",
@@ -85,6 +93,13 @@ def generate_script(params, output_script_path):
             f"obj.Radius2 = {radius2}",
             f"obj.Height = {height}",
         ])
+    elif shape == 'torus':
+        obj_name = 'MyTorus'
+        script_lines.extend([
+            f"obj = doc.addObject('Part::Torus', '{obj_name}')",
+            f"obj.Radius1 = {radius1}",
+            f"obj.Radius2 = {radius2}",
+        ])
     else: # Default to a box
         obj_name = 'DefaultBox'
         script_lines.extend([
@@ -94,6 +109,150 @@ def generate_script(params, output_script_path):
             f"obj.Height = 10",
         ])
 
+    # --- Lógica para Agregados (Boolean Fuse) ---
+    if stud_radius > 0:
+        script_lines.extend([
+            "",
+            "# --- Operación de Unión (Pivote Superior) ---",
+            "stud = doc.addObject('Part::Cylinder', 'StudTool')",
+            f"stud.Radius = {stud_radius}",
+            f"stud.Height = {stud_height}",
+        ])
+        
+        # Posicionar el pivote (Centrado arriba)
+        if shape == 'box':
+            script_lines.append(f"stud.Placement.Base = FreeCAD.Vector({length}/2, {width}/2, {height})")
+        elif shape == 'sphere':
+            script_lines.append(f"stud.Placement.Base = FreeCAD.Vector(0, 0, {radius})")
+        else:
+            # Cylinder/Cone (Centrados en Z por defecto, top en Height)
+            script_lines.append(f"stud.Placement.Base = FreeCAD.Vector(0, 0, {height})")
+            
+        script_lines.extend([
+            "fuse = doc.addObject('Part::MultiFuse', 'Fuse')",
+            f"fuse.Shapes = [doc.getObject('{obj_name}'), stud]",
+            f"doc.getObject('{obj_name}').ViewObject.Visibility = False",
+            "stud.ViewObject.Visibility = False",
+            "doc.recompute()",
+        ])
+        obj_name = "Fuse" # Actualizar el nombre del objeto a exportar
+
+    # --- Lógica para Agujeros (Boolean Cut) ---
+    if hole_radius > 0:
+        script_lines.extend([
+            "",
+            "# --- Operación de Corte (Agujero Central) ---",
+            "hole = doc.addObject('Part::Cylinder', 'HoleTool')",
+            f"hole.Radius = {hole_radius}",
+        ])
+        
+        # Calcular altura del agujero (un poco más largo para asegurar el corte)
+        total_h = height + (stud_height if stud_radius > 0 else 0)
+        hole_h = total_h + 10 if shape in ['box', 'cylinder', 'cone'] else (radius * 2.5 if shape == 'sphere' else 50)
+        script_lines.append(f"hole.Height = {hole_h}")
+        
+        # Posicionar el agujero (Centrado)
+        if shape == 'box':
+            script_lines.append(f"hole.Placement.Base = FreeCAD.Vector({length}/2, {width}/2, -5)")
+        elif shape == 'sphere':
+            script_lines.append(f"hole.Placement.Base = FreeCAD.Vector(0, 0, -{hole_h}/2)")
+        else:
+            # Cylinder/Cone/Torus (Centrados en Z por defecto)
+            script_lines.append("hole.Placement.Base = FreeCAD.Vector(0, 0, -5)")
+            
+        script_lines.extend([
+            "cut = doc.addObject('Part::Cut', 'Cut')",
+            f"cut.Base = doc.getObject('{obj_name}')",
+            "cut.Tool = hole",
+            f"doc.getObject('{obj_name}').ViewObject.Visibility = False",
+            "hole.ViewObject.Visibility = False",
+            "doc.recompute()",
+        ])
+        obj_name = "Cut" # Actualizar el nombre del objeto a exportar
+
+    # --- Lógica para Redondeo (Fillet) ---
+    if fillet_radius > 0:
+        script_lines.extend([
+            "",
+            "# --- Operación de Redondeo (Fillet) ---",
+            "try:",
+            "    # Usamos makeFillet directo en la forma (más robusto para scripts)",
+            f"    base_obj = doc.getObject('{obj_name}')",
+            f"    fillet_shape = base_obj.Shape.makeFillet({fillet_radius}, base_obj.Shape.Edges)",
+            "    fillet_obj = doc.addObject('Part::Feature', 'Fillet')",
+            "    fillet_obj.Shape = fillet_shape",
+            f"    base_obj.ViewObject.Visibility = False",
+            "    doc.recompute()",
+            "    obj_name = 'Fillet'",
+            "except Exception as e:",
+            "    print(f'Warning: No se pudo aplicar el redondeo (posiblemente geometría compleja): {e}', file=sys.stderr)",
+        ])
+
+    # --- Lógica para Rotación ---
+    if rotate_axis and rotate_angle != 0:
+        axis_vec = "FreeCAD.Vector(0,0,1)" # Default Z
+        if rotate_axis.lower() == 'x': axis_vec = "FreeCAD.Vector(1,0,0)"
+        elif rotate_axis.lower() == 'y': axis_vec = "FreeCAD.Vector(0,1,0)"
+        
+        script_lines.extend([
+            "",
+            "# --- Operación de Rotación ---",
+            f"rot_obj = doc.getObject('{obj_name}')",
+            f"rot_obj.Placement = FreeCAD.Placement(rot_obj.Placement.Base, FreeCAD.Rotation({axis_vec}, {rotate_angle}))",
+        ])
+
+    # --- Lógica para Color ---
+    color_map = {
+        'Red': (1.0, 0.0, 0.0), 'Green': (0.0, 1.0, 0.0), 'Blue': (0.0, 0.0, 1.0),
+        'Yellow': (1.0, 1.0, 0.0), 'Cyan': (0.0, 1.0, 1.0), 'Magenta': (1.0, 0.0, 1.0),
+        'White': (0.9, 0.9, 0.9), 'Black': (0.1, 0.1, 0.1), 'Grey': (0.5, 0.5, 0.5),
+        # Spanish fallbacks
+        'Rojo': (1.0, 0.0, 0.0), 'Verde': (0.0, 1.0, 0.0), 'Azul': (0.0, 0.0, 1.0),
+        'Amarillo': (1.0, 1.0, 0.0), 'Cian': (0.0, 1.0, 1.0), 'Blanco': (0.9, 0.9, 0.9),
+        'Negro': (0.1, 0.1, 0.1), 'Gris': (0.5, 0.5, 0.5)
+    }
+    rgb = color_map.get(color_name, (0.9, 0.9, 0.9))
+    
+    script_lines.extend([
+        "",
+        "# --- Aplicar Color ---",
+        "try:",
+        f"    Gui.getDocument(doc.Name).getObject('{obj_name}').ShapeColor = {rgb}",
+        "except Exception as e:",
+        "    print(f'Warning: No se pudo aplicar el color: {e}', file=sys.stderr)"
+    ])
+
+    # --- Lógica para Dibujar Ejes (Referencia Visual) ---
+    if draw_axes:
+        script_lines.extend([
+            "",
+            "# --- Dibujar Ejes de Coordenadas (RGB = XYZ) ---",
+            "try:",
+            "    # Eje X (Rojo)",
+            "    ax_x = doc.addObject('Part::Cylinder', 'AxisX')",
+            "    ax_x.Radius = 0.5",
+            "    ax_x.Height = 100",
+            "    # Rotar 90 grados en Y para alinear con X",
+            "    ax_x.Placement = FreeCAD.Placement(FreeCAD.Vector(0,0,0), FreeCAD.Rotation(FreeCAD.Vector(0,1,0), 90))",
+            "    Gui.getDocument(doc.Name).getObject('AxisX').ShapeColor = (1.0, 0.0, 0.0)",
+            "",
+            "    # Eje Y (Verde)",
+            "    ax_y = doc.addObject('Part::Cylinder', 'AxisY')",
+            "    ax_y.Radius = 0.5",
+            "    ax_y.Height = 100",
+            "    # Rotar -90 grados en X para alinear con Y",
+            "    ax_y.Placement = FreeCAD.Placement(FreeCAD.Vector(0,0,0), FreeCAD.Rotation(FreeCAD.Vector(1,0,0), -90))",
+            "    Gui.getDocument(doc.Name).getObject('AxisY').ShapeColor = (0.0, 1.0, 0.0)",
+            "",
+            "    # Eje Z (Azul)",
+            "    ax_z = doc.addObject('Part::Cylinder', 'AxisZ')",
+            "    ax_z.Radius = 0.5",
+            "    ax_z.Height = 100",
+            "    Gui.getDocument(doc.Name).getObject('AxisZ').ShapeColor = (0.0, 0.0, 1.0)",
+            "except Exception as e:",
+            "    print(f'Warning: No se pudieron dibujar los ejes: {e}', file=sys.stderr)"
+        ])
+
     script_lines.extend([
         "doc.recompute()",
         "",
@@ -101,6 +260,7 @@ def generate_script(params, output_script_path):
         "output_dir = '/mnt/out' if os.path.exists('/mnt/out') else '.'",
         "output_filename_step = os.path.join(output_dir, 'modelo_3d.step')",
         "output_filename_stl = os.path.join(output_dir, 'modelo_3d.stl')",
+        "output_filename_obj = os.path.join(output_dir, 'modelo_3d.obj')",
         "output_filename_png = os.path.join(output_dir, 'modelo_3d.png')",
         "",
         f"export_obj = doc.getObject('{obj_name}')",
@@ -127,6 +287,24 @@ def generate_script(params, output_script_path):
         "except Exception as e:",
         "    print(f'Error exportando a STL: {e}', file=sys.stderr)",
         "    sys.exit(1)",
+        "",
+        "# Exportar a OBJ (Wavefront)",
+        "try:",
+        "    print('Generando OBJ...')",
+        "    mesh_obj = MeshPart.meshFromShape(Shape=export_obj.Shape, LinearDeflection=0.1)",
+        "    mesh_obj.write(output_filename_obj)",
+        "    print(f'OBJ guardado en: {output_filename_obj}')",
+        "except Exception as e:",
+        "    print(f'Error exportando a OBJ: {e}', file=sys.stderr)",
+        "",
+        "# Calcular Propiedades Físicas",
+        "try:",
+        "    vol = export_obj.Shape.Volume",
+        "    # Densidad aprox PLA: 1.24 g/cm3 = 0.00124 g/mm3",
+        "    mass = vol * 0.00124",
+        "    print(f'PROPERTIES: Volume={vol:.2f} mm3 | Mass={mass:.2f} g (PLA)')",
+        "except Exception as e:",
+        "    print(f'Error calculando propiedades: {e}', file=sys.stderr)",
         "",
         "# --- Generar Renderizado Realista (PNG) ---",
         "try:",
