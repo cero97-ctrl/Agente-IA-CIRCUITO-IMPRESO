@@ -20,6 +20,11 @@ def generate_script(params, output_script_path):
     fillet_radius = params.get('fillet_radius', 0)
     color_name = params.get('color', 'White')
     draw_axes = params.get('draw_axes', False)
+    # Parámetros de engranaje
+    teeth = params.get('teeth', 20)
+    gear_module = params.get('module', 1.0)
+    pressure_angle = params.get('pressure_angle', 20.0)
+    gear_hole_diameter = params.get('hole_diameter', 0)
 
     script_lines = [
         "import sys",
@@ -100,6 +105,32 @@ def generate_script(params, output_script_path):
             f"obj.Radius1 = {radius1}",
             f"obj.Radius2 = {radius2}",
         ])
+    elif shape == 'gear':
+        obj_name = 'InvoluteGear'
+        script_lines.extend([
+            "",
+            "# --- Creación de Engranaje (usando freecad.gears) ---",
+            "try:",
+            "    from freecad.gears.commands import CreateInvoluteGear",
+            "except ImportError as e:",
+            "    print(f'Error: El workbench FCGear (freecad.gears) no está instalado: {e}', file=sys.stderr)",
+            "    print(f'Rutas buscadas (sys.path): {sys.path}', file=sys.stderr)",
+            "    sys.exit(1)",
+            "",
+            f"obj = CreateInvoluteGear.create()",
+            f"obj.num_teeth = {teeth}",
+            f"obj.module = '{gear_module} mm'",
+            f"obj.height = '{height} mm'",
+            f"obj.pressure_angle = '{pressure_angle} deg'",
+        ])
+        if gear_hole_diameter > 0:
+            script_lines.extend([
+                f"obj.axle_hole = True",
+                f"obj.axle_holesize = '{gear_hole_diameter} mm'",
+            ])
+        # Los engranajes no necesitan boolean cut para agujeros, lo maneja FCGear internamente
+        # Desactivamos la lógica de hole_radius para este shape
+        hole_radius = 0
     else: # Default to a box
         obj_name = 'DefaultBox'
         script_lines.extend([

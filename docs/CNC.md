@@ -39,6 +39,21 @@ Para pasar de una idea a una pieza física, casi siempre debes seguir este camin
 
 **¿Ya tienes algún diseño listo o estás buscando recomendaciones de software para empezar a crear tus propios archivos?**
 
+---
+
+### **4. Extendiendo FreeCAD con Workbenches de la Comunidad**
+
+Una de las mayores fortalezas de FreeCAD es su ecosistema de **Workbenches** (Bancos de Trabajo) adicionales. Estos son "plugins" desarrollados por la comunidad que añaden herramientas para tareas muy específicas que no vienen en la instalación base.
+
+**Caso Práctico: `FCGear`**
+
+Durante el desarrollo de este agente, se añadió la capacidad de diseñar engranajes. Esto no es posible con el FreeCAD estándar. La solución fue integrar el workbench `FCGear`.
+
+**¿Cómo se integra un nuevo Workbench en el Agente?**
+El proceso consiste en modificar el entorno donde se ejecuta FreeCAD (en nuestro caso, el `Dockerfile` del sandbox) para que clone o descargue el código del workbench en la carpeta de `Mod` de FreeCAD. Esto lo hace permanentemente disponible para los scripts que lo necesiten.
+
+Este método es el procedimiento estándar a seguir siempre que se necesite una funcionalidad que no está en el núcleo de FreeCAD, como la creación de tuberías, chapas metálicas, etc.
+
 ## Quiero, a partir del diagrama esquemático de un circuito generar el G Code pero utilizando librerias de Python. Es posible eso?
 
 **Es totalmente posible, aunque es un camino que requiere un par de pasos intermedios. Las máquinas CNC no pueden "ver" un esquema eléctrico (que es una representación lógica) y saber dónde van las pistas físicas.**

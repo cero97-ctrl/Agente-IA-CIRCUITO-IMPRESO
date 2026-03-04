@@ -8,11 +8,38 @@
  
  # 1. Variables de entorno críticas para FreeCAD (solución del PDF)
  # Para que Python encuentre los módulos de FreeCAD y sepa qué display virtual usar.
- ENV PYTHONPATH="/usr/lib/freecad/lib:/usr/lib/freecad-python3/lib:${PYTHONPATH}"
+ # Se incluye la ruta de FCGear para que 'freecad.gears' sea importable como namespace package.
+ ENV PYTHONPATH="/usr/lib/freecad/lib:/usr/lib/freecad-python3/lib:/usr/share/freecad/Mod/FCGear:${PYTHONPATH}"
  ENV DISPLAY=:99
  
  # 2. Instalación completa en una sola capa para optimizar
- RUN apt-get update && apt-get install -y --no-install-recommends      software-properties-common      gnupg      wget      xvfb      procps      libgl1-mesa-dri      libgl1-mesa-glx      && add-apt-repository -y ppa:freecad-maintainers/freecad-stable      && add-apt-repository -y ppa:kicad/kicad-8.0-releases      && apt-get update && apt-get install -y --no-install-recommends      python3      python3-pip      kicad      kicad-footprints      freecad      freecad-python3      pcb2gcode      && pip3 install --no-cache-dir pandas numpy matplotlib requests beautifulsoup4 pypdf opencv-python-headless skidl pathfinding      && apt-get clean      && rm -rf /var/lib/apt/lists/*
+ RUN apt-get update && apt-get install -y --no-install-recommends \
+     software-properties-common \
+     gnupg \
+     wget \
+     git \
+     xvfb \
+     procps \
+     libgl1-mesa-dri \
+     libgl1-mesa-glx \
+     && add-apt-repository -y ppa:freecad-maintainers/freecad-stable \
+     && add-apt-repository -y ppa:kicad/kicad-8.0-releases \
+     && apt-get update && apt-get install -y --no-install-recommends \
+     python3 \
+     python3-pip \
+     kicad \
+     kicad-footprints \
+     freecad \
+     freecad-python3 \
+     pcb2gcode \
+     && pip3 install --no-cache-dir pandas "numpy<1.25.0" matplotlib requests beautifulsoup4 pypdf opencv-python-headless skidl pathfinding \
+     && mkdir -p /usr/share/freecad/Mod \
+     && git clone https://github.com/looooo/freecad.gears.git /usr/share/freecad/Mod/FCGear \
+     && cd /usr/share/freecad/Mod/FCGear && pip3 install --no-cache-dir . && cd / \
+     && mkdir -p /root/.local/share/FreeCAD/Mod \
+     && cp -r /usr/share/freecad/Mod/FCGear /root/.local/share/FreeCAD/Mod/ \
+     && apt-get clean \
+     && rm -rf /var/lib/apt/lists/*
  
  # Asegurar que 'python' apunte a python3 para compatibilidad
  RUN ln -s /usr/bin/python3 /usr/bin/python

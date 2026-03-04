@@ -446,7 +446,7 @@ def _handle_ayuda(msg, sender_id, run_tool):
     return (
         "🤖 *Comandos Disponibles:*\n\n"
         "--- *Diseño y Fabricación* ---\n"
-        "🔹 */freecad [descripción]*: Crea un modelo 3D (caja, cono, etc).\n"
+        "🔹 */freecad [descripción]*: Crea un modelo 3D (caja, cono, engranaje, etc).\n"
         "🔹 */diseñar* (con foto): Analiza un dibujo de circuito.\n"
         "🔹 */kicad*: Genera el esquemático KiCad desde un diseño.\n"
         "🔹 */pcb*: Genera el layout PCB desde un diseño.\n"
@@ -790,20 +790,27 @@ def _handle_freecad(msg, sender_id, run_tool):
     - Si el usuario pide una MODIFICACIÓN (ej: "hazlo más alto", "ahora rojo", "cambia radio a 5"), toma el JSON del CONTEXTO ACTUAL y modifica solo los valores mencionados.
     - Si el usuario pide un OBJETO NUEVO (ej: "crea un cubo", "un cilindro"), ignora el contexto y genera un JSON nuevo.
 
-    Los tipos de 'shape' válidos son: "box", "cylinder", "sphere", "cone", "torus".
-    Si es una caja, extrae 'length', 'width', 'height'.
-    Si es un cilindro, extrae 'radius', 'height'.
-    Si es una esfera, extrae 'radius'.
-    Si es un cono, extrae 'radius1' (radio de la base), 'radius2' (radio superior, 0 si no se especifica), y 'height'.
-    Si es un toroide (dona), extrae 'radius1' (radio mayor/anillo) y 'radius2' (radio menor/tubo).
-    OPCIONAL: Si el usuario menciona un agujero, hueco o perforación central (ej: "con un agujero de 5mm"), extrae 'hole_radius'.
-    OPCIONAL: Si el usuario menciona un agregado, saliente, pivote o vástago superior (ej: "con un pivote de 5mm"), extrae 'stud_radius' y 'stud_height' (si no se dice altura, usa 10).
-    OPCIONAL: Si el usuario menciona rotación (ej: "rotar 45 grados en X"), extrae 'rotate_axis' ('x','y','z') y 'rotate_angle' (grados).
-    OPCIONAL: Si el usuario menciona redondear bordes, suavizar o filete (ej: "bordes redondeados de 2mm"), extrae 'fillet_radius'.
-    OPCIONAL: Si el usuario menciona un color (ej: "rojo", "azul"), extrae 'color' (en inglés: 'Red', 'Blue', 'Green', 'Yellow', 'Cyan', 'Magenta', 'White', 'Black', 'Grey').
-    OPCIONAL: Si el usuario pide mostrar ejes, coordenadas, origen o referencia (ej: "muestra los ejes", "con ejes"), extrae 'draw_axes': true.
-    Si no se especifica una forma, asume 'box'.
-    Si faltan dimensiones, usa 10 como valor por defecto.
+    Los tipos de 'shape' válidos son: "box", "cylinder", "sphere", "cone", "torus", "gear".
+    - Para 'box': 'length', 'width', 'height'.
+    - Para 'cylinder': 'radius', 'height'.
+    - Para 'sphere': 'radius'.
+    - Para 'cone': 'radius1' (base), 'radius2' (superior, 0 si no se especifica), 'height'.
+    - Para 'torus': 'radius1' (anillo), 'radius2' (tubo).
+    - Para 'gear': 'teeth' (int), 'module' (float, default 1.0), 'height' (float, default 5.0), 'pressure_angle' (float, default 20.0). Si se menciona un agujero central, extrae 'hole_diameter' (float, diámetro).
+    
+    PARÁMETROS OPCIONALES (para cualquier forma):
+    - 'hole_radius': para un agujero central genérico (no aplica a 'gear' si se usa 'hole_diameter').
+    - 'stud_radius', 'stud_height': para un pivote superior (default height 10).
+    - 'rotate_axis' ('x','y','z'), 'rotate_angle' (grados).
+    - 'fillet_radius': para redondear bordes.
+    - 'color': 'Red', 'Blue', 'Green', etc.
+    - 'draw_axes': true, si se pide mostrar los ejes.
+
+    REGLAS DE VALORES:
+    - Si no se especifica una forma, asume 'box'.
+    - Si faltan dimensiones, usa 10.0 como valor por defecto, a menos que la forma tenga su propio default (ej. 'gear').
+    - Usa siempre números (int o float), no strings con "mm".
+    
     Descripción: "{description}"
     
     Ejemplo de salida para "un cubo de 15mm":
@@ -887,6 +894,25 @@ def _handle_freecad(msg, sender_id, run_tool):
       "radius2": 0,
       "height": 10,
       "draw_axes": true
+    }}
+
+    Ejemplo de salida para "un engranaje de 25 dientes con agujero central de 5mm":
+    {{
+      "shape": "gear",
+      "teeth": 25,
+      "module": 1.0,
+      "height": 5.0,
+      "pressure_angle": 20.0,
+      "hole_diameter": 5.0
+    }}
+
+    Ejemplo de salida para "un piñón de 15 dientes, módulo 2":
+    {{
+      "shape": "gear",
+      "teeth": 15,
+      "module": 2.0,
+      "height": 5.0,
+      "pressure_angle": 20.0
     }}
 
     JSON de salida:

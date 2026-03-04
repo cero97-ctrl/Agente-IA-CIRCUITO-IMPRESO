@@ -28,12 +28,49 @@ El agente puede realizar las siguientes tareas a través de comandos de Telegram
 - **Generación de G-Code**: Convierte imágenes en blanco y negro a G-Code (`.nc`) para fresado.
 - **Comunicación con Máquina**: Incluye un script para enviar G-Code a máquinas CNC que usan el firmware GRBL.
 
-## Requisitos
+## Instalación y Puesta en Marcha
 
 El sistema está diseñado para ejecutarse en un entorno contenerizado para máxima portabilidad.
-*   **Docker**: Para ejecutar el sandbox que contiene FreeCAD, KiCad y todas las dependencias.
-*   **Python 3.10+**: Para ejecutar la lógica del agente (orquestación, bot de Telegram).
-*   **Cuentas de API**: Claves para los servicios de LLM (Gemini, OpenAI, etc.) configuradas en el archivo `.env`.
+
+### 1. Requisitos Previos
+- **Docker**: Para ejecutar el sandbox que contiene FreeCAD, KiCad y todas las dependencias.
+- **Python 3.10+**: Para ejecutar la lógica del agente.
+
+### 2. Clonar el Repositorio
+```bash
+git clone https://github.com/cero-etage/Agente-IA-CIRCUITO-IMPRESO.git
+cd Agente-IA-CIRCUITO-IMPRESO
+```
+
+### 3. Configurar el Entorno
+Crea un archivo `.env` en la raíz del proyecto y añade tus claves de API. Puedes usar el siguiente ejemplo como plantilla:
+```env
+TELEGRAM_BOT_TOKEN="tu_token_de_telegram"
+TELEGRAM_CHAT_ID="tu_chat_id"
+
+# Elige al menos un proveedor de LLM
+GROQ_API_KEY="tu_api_key_de_groq"
+GOOGLE_API_KEY="tu_api_key_de_google"
+OPENAI_API_KEY="tu_api_key_de_openai"
+ANTHROPIC_API_KEY="tu_api_key_de_anthropic"
+```
+
+### 4. Construir el Sandbox de Docker
+Este comando crea la imagen de Docker con todas las herramientas CAD/ECAD necesarias. Puede tardar un poco la primera vez.
+```bash
+python execution/build_sandbox.py
+```
+
+### 5. Instalar Dependencias de Python
+```bash
+pip install -r requirements.txt
+```
+
+### 6. Ejecutar el Agente
+Una vez configurado, inicia el bot que escuchará los comandos de Telegram.
+```bash
+python execution/listen_telegram.py
+```
 
 ## Documentación Detallada
 

@@ -6,6 +6,8 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [1.1.0] - 2024-07-28
 ### Añadido
 - Script `execution/check_system_health.py` para validación de entorno (Python, .env, dependencias).
 - Mejora en `generate_readme.py`: ahora lee los archivos YAML para incluir la descripción (`goal`) de cada directiva en el prompt del LLM.
@@ -35,6 +37,7 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 - **Empaquetado de Manufactura**: Script `create_manufacturing_zip.py` para crear ZIPs compatibles con PCBWay/JLCPCB.
 - **Patrones de Prueba**: Script `generate_test_pattern.py` para validar la detección de taladros.
 - **Comandos de Telegram**: Soporte para "gerber", "drill" y "paquete" en el bot.
+
 
 ## [1.0.0] - 2026-02-16
 ### Añadido
