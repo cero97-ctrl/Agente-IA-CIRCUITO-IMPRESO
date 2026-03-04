@@ -28,6 +28,8 @@ El agente puede realizar las siguientes tareas a través de comandos de Telegram
 - **Generación de G-Code**: Convierte imágenes en blanco y negro a G-Code (`.nc`) para fresado.
 - **Comunicación con Máquina**: Incluye un script para enviar G-Code a máquinas CNC que usan el firmware GRBL.
 
+Para una lista completa de comandos y sus descripciones, consulta la Referencia de Comandos.
+
 ## Instalación y Puesta en Marcha
 
 El sistema está diseñado para ejecutarse en un entorno contenerizado para máxima portabilidad.
