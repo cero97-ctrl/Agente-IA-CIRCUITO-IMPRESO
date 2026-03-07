@@ -1,0 +1,136 @@
+\documentclass[12pt, a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{palatino} % Fuente más amigable para lectura
+\usepackage{textcomp} % Para símbolos adicionales como \textasciiexclamdown
+
+\geometry{top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm}
+
+% Configuración de colores y estilo para el código
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=2
+}
+
+\lstset{style=mystyle,
+    literate={á}{{\'a}}1
+             {é}{{\'e}}1
+             {í}{{\'i}}1
+             {ó}{{\'o}}1
+             {ú}{{\'u}}1
+             {ñ}{{\~n}}1
+             {Á}{{\'A}}1
+             {É}{{\'E}}1
+             {Í}{{\'I}}1
+             {Ó}{{\'O}}1
+             {Ú}{{\'U}}1
+             {Ñ}{{\~N}}1
+             {¡}{{\textexclamdown}}1 % Solución: \textexclamdown (de T1) funciona en lstlisting
+}
+
+\title{\textbf{Programación de Agentes de IA}\\ \large La Arquitectura de 3 Capas explicada con una Cocina}
+\author{Clase de Informática}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Introducción: El Problema del Chef Distraído}
+
+Imaginen que están construyendo un robot para cocinar en un restaurante de lujo. El cerebro de este robot es una Inteligencia Artificial (como Gemini o GPT).
+
+El problema es que las IAs son muy creativas, pero a veces se distraen o 'alucinan'. Son como un \textbf{Chef Genio pero distraído}. Si le pides que corte una cebolla, quizás te escriba un poema sobre las capas de la cebolla en lugar de cortarla.
+
+Para solucionar esto y hacer que el robot sea confiable, usamos una técnica llamada \textbf{Arquitectura de 3 Capas}.
+
+\section{La Analogía de la Cocina}
+
+\subsection{Capa 1: Directivas (El Libro de Recetas)}
+\begin{itemize}
+    \item \textbf{¿Qué es?} Archivos de texto con instrucciones fijas (YAML).
+    \item \textbf{Función:} Es el manual que dice \textit{qué} hacer paso a paso. Aquí no hay magia, solo reglas.
+    \item \textbf{Ejemplo:} 'Paso 1: Cortar cebolla. Paso 2: Sofreír'.
+\end{itemize}
+
+\subsection{Capa 2: Orquestación (El Chef Ejecutivo / La IA)}
+\begin{itemize}
+    \item \textbf{¿Qué es?} El modelo de Inteligencia Artificial (el cerebro).
+    \item \textbf{Función:} Es el jefe. Su trabajo \textbf{no es picar la cebolla} con sus propias manos. Su trabajo es:
+    \begin{enumerate}
+        \item Leer la receta (Capa 1).
+        \item Dar la orden a los cocineros: '¡Necesito picar cebolla ahora!'.
+        \item Verificar que el plato esté bien hecho.
+        \item Si hay un error (ej. se acabaron las cebollas), decidir qué hacer.
+    \end{enumerate}
+\end{itemize}
+
+\subsection{Capa 3: Ejecución (Los Cocineros de Línea / Herramientas)}
+\begin{itemize}
+    \item \textbf{¿Qué es?} Scripts de programación (código Python).
+    \item \textbf{Función:} Son las manos y las herramientas. Son 'tontos' pero \textbf{extremadamente precisos}.
+    \item \textbf{Diferencia clave:} Si la IA (Capa 2) dice 'Calcula la raíz cuadrada de 144', el Script (Capa 3) saca la calculadora y devuelve '12'. Nunca dirá 'creo que es 13'.
+\end{itemize}
+
+\section{Ejemplo Práctico en Código}
+
+Si queremos que el agente 'Guarde un recuerdo', así se ve la Capa 3 (Ejecución) en Python. Es código simple que hace una sola cosa bien:
+
+\begin{lstlisting}[language=Python, caption=Script de Ejecución (Capa 3)]
+import sys
+
+# Recibimos el texto del Chef (Capa 2)
+texto = sys.argv[1]
+
+# Hacemos el trabajo sucio: Guardar en disco
+archivo = open('memoria.txt', 'a')
+archivo.write(texto + '\n')
+archivo.close()
+
+print('¡Listo jefe! Guardado en el disco.')
+\end{lstlisting}
+
+\section{Resumen Visual}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Capa} & \textbf{Nombre} & \textbf{Rol en la Cocina} & \textbf{Herramienta Real} \\ \midrule
+1 & Directivas & El Libro de Recetas (El QUÉ) & Archivos YAML/Texto \\
+2 & Orquestación & El Chef Ejecutivo (El CUÁNDO) & IA (Gemini/GPT) \\
+3 & Ejecución & Cocineros de Línea (El CÓMO) & Python (Scripts) \\ \bottomrule
+\end{tabular}
+\caption{Comparativa de la Arquitectura de 3 Capas}
+\end{table}
+
+\section{Conclusión}
+Separamos el \textbf{Pensamiento Probabilístico} (IA) de la \textbf{Acción Determinista} (Código). Así obtenemos lo mejor de los dos mundos: un robot que entiende lo que quieres y que nunca falla al hacerlo.
+
+\end{document}
