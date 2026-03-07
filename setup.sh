@@ -3,7 +3,7 @@
 # Exit immediately if a command exits with a non-zero status.
 set -e
 
-ENV_NAME="cnc_bot_env"
+ENV_NAME="pcb_env"
 
 echo "🚀 Iniciando configuración del entorno para el Bot de CNC..."
 
@@ -36,4 +36,4 @@ echo ""
 echo "✅ ¡Instalación completada!"
 echo "⚠️  IMPORTANTE: No olvides rellenar el archivo .env con tu TOKEN y CHAT_ID de Telegram."
 echo "👉 Para activar el entorno en el futuro, usa: 'conda activate $ENV_NAME'"
-echo "🤖 Para iniciar el bot, usa: 'python bot.py'"
+echo "🤖 Para iniciar el bot, usa: 'python execution/listen_telegram.py'"

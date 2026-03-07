@@ -10,12 +10,12 @@ Para garantizar la reproducibilidad y evitar conflictos de dependencias, se reco
 
 1.  **Crear el entorno:**
     ```bash
-    conda create --name agent_env python=3.10 -y
+    conda create --name pcb_env python=3.10 -y
     ```
 
 2.  **Activar el entorno:**
     ```bash
-    conda activate agent_env
+    conda activate pcb_env
     ```
 
 3.  **Instalar dependencias:**
