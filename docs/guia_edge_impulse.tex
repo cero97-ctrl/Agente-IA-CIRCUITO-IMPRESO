@@ -1,0 +1,182 @@
+\documentclass[12pt, a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage[hidelinks]{hyperref}
+\usepackage{palatino}
+\usepackage{amsmath}
+\usepackage{textcomp}
+
+\geometry{top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm}
+
+% Configuración de colores y estilo para el código
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=2
+}
+
+\lstset{style=mystyle,
+    literate={á}{{\'a}}1
+             {é}{{\'e}}1
+             {í}{{\'i}}1
+             {ó}{{\'o}}1
+             {ú}{{\'u}}1
+             {ñ}{{\~n}}1
+             {Á}{{\'A}}1
+             {É}{{\'E}}1
+             {Í}{{\'I}}1
+             {Ó}{{\'O}}1
+             {Ú}{{\'U}}1
+             {Ñ}{{\~N}}1
+             {¡}{{\textexclamdown}}1
+}
+
+\title{\textbf{Guía de Implementación: IA en el Borde}\\ \large Con ESP32-S3 y Edge Impulse}
+\author{Documentación generada por Asistente de Código Gemini}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Introducción y Diagnóstico}
+
+La combinación de una placa \textbf{ESP32-S3} con la plataforma \textbf{Edge Impulse} es la elección correcta para implementar Inteligencia Artificial en el dispositivo (conocido como \textit{AI on the Edge}).
+
+El problema más común en estos proyectos es que, aunque el hardware es potente y la plataforma de IA es la adecuada, el entorno de desarrollo (IDE) puede causar fricción y complicar el flujo de trabajo. La recomendación principal es adoptar un flujo de trabajo estándar y documentado.
+
+\section{Plan de Acción: De Cero al Reconocimiento de Objetos}
+
+Este es el camino más fiable y con más soporte de la comunidad para lograr el objetivo.
+
+\subsection{Paso 1: Usar un Entorno de Desarrollo Estándar}
+El 99\% de los problemas se resolverán al cambiar a una de estas dos opciones, que son gratuitas y tienen miles de tutoriales:
+\begin{itemize}
+    \item \textbf{Arduino IDE 2.0:} Es la opción más sencilla para empezar. Es simple, directo y funciona muy bien con las librerías que generará Edge Impulse.
+    \item \textbf{PlatformIO con Visual Studio Code:} Es la opción más profesional. Ofrece mejor autocompletado de código, gestión de librerías y depuración. Es el camino recomendado a largo plazo. (Nota: Al usar la librería de Edge Impulse, asegúrate de configurar \texttt{framework = arduino} en tu \texttt{platformio.ini}).
+\end{itemize}
+Estos IDEs gestionan automáticamente las complejas herramientas necesarias para compilar código para el ESP32-S3 y son 100\% compatibles con el ecosistema de Edge Impulse.
+
+\subsection{Paso 2: Recolectar los Datos (Las Imágenes)}
+La IA necesita aprender de un "dataset" (una colección de imágenes). Para los dos objetos a reconocer, se pueden seguir dos métodos:
+\begin{itemize}
+    \item \textbf{Método 1 (Recomendado):} Usar un teléfono móvil. Edge Impulse permite conectar un teléfono por código QR y usar su cámara para tomar y subir fotos directamente a la plataforma, ya etiquetadas. Se recomienda tomar al menos 30-50 fotos de cada objeto desde diferentes ángulos y condiciones de luz.
+    \item \textbf{Método 2:} Tomar las fotos por separado y subirlas manualmente a la sección \texttt{Data acquisition} de Edge Impulse.
+\end{itemize}
+
+\subsection{Paso 3: Entrenar el Modelo en la Nube de Edge Impulse}
+El entrenamiento se realiza a través de la página web de Edge Impulse.
+\begin{enumerate}
+    \item \textbf{Crear un "Impulse" (El cerebro del modelo):}
+    \begin{itemize}
+        \item \textbf{Input block:} Debe ser de tipo \texttt{Image}. Aquí se define el tamaño de la imagen (ej. 96x96 píxeles). Un tamaño pequeño es más rápido.
+        \item \textbf{Processing block:} \texttt{Image}. Este bloque extrae las características de la imagen.
+        \item \textbf{Learning block:} \texttt{Transfer Learning (Images)}. Este bloque es el que aprende a diferenciar entre los objetos.
+    \end{itemize}
+    \item \textbf{Generar Características:} En la pestaña \texttt{Image}, hacer clic en \texttt{Generate features}.
+    \item \textbf{Entrenar el Modelo:} En la pestaña \texttt{Transfer learning}, hacer clic en \texttt{Start training}. Edge Impulse elegirá un modelo base (como MobileNetV2) y lo re-entrenará con las imágenes proporcionadas. \textit{Tip: Para visión artificial en ESP32-S3, se recomienda encarecidamente seleccionar el modelo \textbf{FOMO} (Faster Objects, More Objects) por ser extremadamente ligero y permitir detectar múltiples objetos.}
+\end{enumerate}
+
+\subsection{Paso 4: Exportar el Modelo como Librería de Arduino}
+Una vez que el modelo esté entrenado y validado, este es el paso clave:
+\begin{enumerate}
+    \item Ir a la pestaña \texttt{Deployment}.
+    \item Seleccionar \textbf{Arduino library}.
+    \item Al final, hacer clic en \texttt{Build}.
+\end{enumerate}
+Esto descargará un archivo \texttt{.zip} que contiene el modelo de IA y todo el código necesario para ejecutarlo, empaquetado como una librería de Arduino.
+
+\subsection{Paso 5: Integrar y Programar en el IDE}
+Volviendo al IDE elegido (Arduino IDE o PlatformIO):
+\begin{enumerate}
+    \item \textbf{Instalar la librería:} En el Arduino IDE, ir a \texttt{Sketch > Include Library > Add .ZIP Library...} y seleccionar el archivo descargado.
+    \item \textbf{Abrir el Ejemplo Correcto:} La librería recién instalada viene con ejemplos. Se debe ir a \texttt{File > Examples > [NombreDelProyecto] > esp32 > camera}. Este archivo \texttt{.ino} ya tiene el 90\% del trabajo hecho.
+    \item \textbf{Configurar los Pines de la Cámara:} Este es el único punto delicado. El script de ejemplo tiene una sección para definir los pines de la cámara. Es crucial buscar el ``pinout'' exacto del fabricante de tu placa (ej. \textit{Seeed XIAO ESP32S3 Sense}, \textit{Freenove ESP32-S3 WROVER}) y asegurarte de que coincidan con los de la placa ESP32-S3 utilizada.
+\end{enumerate}
+
+\section{Ejemplo Conceptual del Código .ino Final}
+El código a utilizar tomará una foto, la pasará al modelo de IA y mostrará los resultados por el puerto serie.
+
+\begin{lstlisting}[language=C++, caption=Ejemplo de inferencia en un ESP32]
+// 1. Incluir la libreria exportada desde Edge Impulse
+#include <NombreDelProyecto_inferencing.h>
+
+// 2. Incluir el codigo para manejar la camara
+#include "esp_camera.h"
+
+// ... (configuracion de los pines de la camara) ...
+
+void setup() {
+    Serial.begin(115200);
+    // ... (inicializacion de la camara) ...
+}
+
+void loop() {
+    // 3. Capturar una imagen de la camara
+    camera_fb_t *fb = esp_camera_fb_get();
+    if (!fb) {
+        Serial.println("Fallo al capturar imagen");
+        return;
+    }
+
+    // 4. Preparar la senal para la libreria de Edge Impulse
+    signal_t signal;
+    // Esta funcion (cutout_get_data) ya suele venir hecha en el ejemplo.
+    // Se encarga de redimensionar y convertir la foto al formato RGB que espera la IA.
+    int r = cutout_get_data(fb, &signal);
+    if (r != 0) {
+        return; // Error
+    }
+
+    // 5. Ejecutar la inferencia (la IA)!
+    ei_impulse_result_t result = { 0 };
+    EI_IMPULSE_ERROR res = run_classifier(&signal, &result, false);
+    
+    // 6. Mostrar los resultados
+    Serial.println("Resultados de la inferencia:");
+    for (size_t ix = 0; ix < EI_CLASSIFIER_LABEL_COUNT; ix++) {
+        // Imprime el nombre del objeto y la confianza (de 0 a 1)
+        ei_printf("    %s: %.5f\n", result.classification[ix].label, result.classification[ix].value);
+    }
+
+    // Liberar la memoria de la imagen
+    esp_camera_fb_return(fb);
+    delay(1000); // Esperar un segundo
+}
+\end{lstlisting}
+
+\section{Resumen de Ideas Clave}
+\begin{itemize}
+    \item \textbf{El IDE es el problema.} Cambiar a Arduino IDE o PlatformIO es la solución más segura.
+    \item \textbf{El flujo es:} Datos $\rightarrow$ Edge Impulse (Nube) $\rightarrow$ Exportar Librería $\rightarrow$ Programar en el IDE. No intentes hacer todo localmente desde el principio.
+    \item \textbf{Empezar con los ejemplos.} La librería que exporta Edge Impulse es la mejor guía. El 90\% del código ya está escrito.
+    \item \textbf{Verificar los pines de la cámara.} Es el único punto de hardware crítico que se debe configurar en el código.
+\end{itemize}
+
+\end{document}
