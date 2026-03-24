@@ -35,6 +35,12 @@ try:
 except ImportError:
     pass # Se manejará si falla al llamar las funciones
 
+# Importar conector de OpenRouter
+try:
+    from chat_openrouter import chat_openrouter
+except ImportError:
+    pass # Se manejará si falla al llamar las funciones
+
 def get_memory_context(query):
     """Busca contexto relevante en la memoria vectorial (ChromaDB)."""
     if not chromadb:
@@ -225,9 +231,9 @@ def chat_gemini(messages, model="gemini-flash-latest", system_instruction=None):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Enviar un prompt a un LLM (OpenAI/Anthropic).")
+    parser = argparse.ArgumentParser(description="Enviar un prompt a un LLM.")
     parser.add_argument("--prompt", required=True, help="El mensaje para el LLM.")
-    parser.add_argument("--provider", choices=["openai", "anthropic", "gemini", "groq"], help="Proveedor de IA.")
+    parser.add_argument("--provider", choices=["openai", "anthropic", "gemini", "groq", "openrouter"], help="Proveedor de IA.")
     parser.add_argument("--memory-query", help="Texto específico para buscar en memoria (si es diferente al prompt).")
     parser.add_argument("--memory-only", action="store_true", help="Solo consulta la memoria y devuelve el resultado directo sin llamar al LLM.")
     parser.add_argument("--no-rag", action="store_true", help="Desactiva la búsqueda en memoria (RAG).")
@@ -287,9 +293,11 @@ PREGUNTA DEL USUARIO:
         # Si el usuario fuerza uno, solo intentamos ese
         providers_to_try.append(args.provider)
     else:
-        # Orden de preferencia: Groq (Rápido) -> Gemini (Backup robusto) -> Otros
+        # Orden de preferencia: Groq (Rápido) -> OpenRouter (Potente) -> Gemini (Backup robusto) -> Otros
         if os.getenv("GROQ_API_KEY") and os.getenv("GROQ_API_KEY").strip():
             providers_to_try.append("groq")
+        if os.getenv("OPENROUTER_API_KEY") and os.getenv("OPENROUTER_API_KEY").strip():
+            providers_to_try.append("openrouter")
         if os.getenv("GOOGLE_API_KEY") and os.getenv("GOOGLE_API_KEY").strip():
             providers_to_try.append("gemini")
         if os.getenv("OPENAI_API_KEY") and os.getenv("OPENAI_API_KEY").strip():
@@ -312,9 +320,15 @@ PREGUNTA DEL USUARIO:
                 result = chat_groq(messages_for_llm, system_instruction=args.system)
             elif provider == "gemini":
                 result = chat_gemini(messages_for_llm, system_instruction=args.system)
+            elif provider == "openrouter":
+                try:
+                    result = chat_openrouter(messages_for_llm, system_instruction=args.system)
+                except NameError:
+                    result = {"error": "El proveedor 'openrouter' no está disponible (no se pudo importar chat_openrouter.py)."}
             
             # Si tuvimos éxito (hay contenido y no error), salimos del bucle
             if "content" in result and "error" not in result:
+                print(f"🤖 [LLM] Respuesta generada por: {provider.upper()}", file=sys.stderr)
                 break
             
             # Si falló, logueamos en stderr (para no ensuciar el JSON de stdout) y seguimos
