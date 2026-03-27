@@ -44,6 +44,10 @@ Esta es una lista completa de los comandos disponibles para el Agente de IA a tr
 | `/status` | Muestra el estado actual del servidor (CPU, RAM, Disco). |
 | `/limpiar` | Elimina archivos temporales, cachés y logs del proyecto. |
 | `/reiniciar` | Borra el historial de conversación y restablece la personalidad. |
+| `/resume [ID]` | Lista el historial de charlas o reanuda una conversación específica por su ID. |
+| `/borrar_sesion [ID]` | Elimina una conversación específica del historial por su ID. |
+| `/buscar_sesion [palabra]` | Busca sesiones en el historial que contengan la palabra clave en su resumen. |
+| `/exportar_sesion [ID]` | Exporta el historial de una sesión a un archivo Markdown en la carpeta `docs/`. |
 | `/modo [tipo]` | Cambia la personalidad del agente (ej: `serio`, `sarcastico`). |
 | `/idioma [es/en]` | Cambia el idioma de reconocimiento de voz. |
 | `/usuarios` | Muestra los últimos 5 IDs de usuario registrados. |

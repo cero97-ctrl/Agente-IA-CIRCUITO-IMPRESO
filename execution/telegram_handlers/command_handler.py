@@ -425,10 +425,97 @@ def _handle_modo(msg, sender_id, run_tool):
         )
 
 def _handle_reiniciar(msg, sender_id, run_tool):
-    print("   🔄 Reiniciando sesión...")
+    print("   🔄 Preparando reinicio de sesión y guardado de historial...")
+    
+    # Generar un resumen rápido de la sesión actual antes de borrarla
+    summary_prompt = "Genera un resumen de una sola frase (máx 15 palabras) de nuestra conversación actual para el historial."
+    res_summary = run_tool("chat_with_llm.py", ["--prompt", summary_prompt, "--no-rag"])
+    summary = res_summary.get("content", "Conversación finalizada") if res_summary else "Conversación finalizada"
+    
+    # Guardar en la base de datos de historial
+    run_tool("chat_history.py", ["--action", "save", "--user-id", sender_id, "--summary", summary])
+    
+    # Proceder con el reinicio
     run_tool("chat_with_llm.py", ["--prompt", "/clear"])
     set_persona("default")
-    return "🔄 *Sistema reiniciado.*\n\n- Historial de conversación borrado.\n- Personalidad restablecida a 'Default'."
+    
+    return f"🔄 *Sistema reiniciado.*\n\n- Sesión anterior guardada: _{summary}_\n- Historial de conversación borrado.\n- Personalidad restablecida a 'Default'."
+
+def _handle_resume(msg, sender_id, run_tool):
+    parts = msg.split()
+    if len(parts) == 1:
+        # Si el usuario solo escribe /resume, listamos sus sesiones anteriores
+        print(f"   📜 Consultando historial de sesiones para {sender_id}...")
+        run_tool("telegram_tool.py", ["--action", "send", "--message", "📜 Buscando tus conversaciones anteriores...", "--chat-id", sender_id])
+        
+        res = run_tool("chat_history.py", ["--action", "list", "--user-id", sender_id])
+        if res and res.get("status") == "success":
+            history = res.get("history", [])
+            if not history:
+                return "📭 No tienes conversaciones guardadas para reanudar."
+            
+            reply = "📜 *Tus Conversaciones Recientes:*\n\n"
+            for session in history:
+                reply += f"🆔 `{session['id']}` | 📅 {session['date']}\n"
+                reply += f"💬 _{session['summary']}_\n\n"
+            reply += "Usa `/resume [ID]` para retomar una charla específica."
+            return reply
+        return "❌ Error al recuperar el historial de conversaciones."
+
+    session_id = parts[1]
+    res = run_tool("chat_history.py", ["--action", "resume", "--user-id", sender_id, "--session-id", session_id])
+    if res and res.get("status") == "success":
+        return f"🔄 *Conversación {session_id} reanudada.*\n\nHe cargado el contexto de esa sesión. ¿En qué nos habíamos quedado?"
+    return f"❌ No se pudo encontrar la conversación con ID `{session_id}`."
+
+def _handle_borrar_sesion(msg, sender_id, run_tool):
+    parts = msg.split()
+    if len(parts) < 2:
+        return "⚠️ Uso: `/borrar_sesion [ID]`\nUsa `/resume` para ver tus IDs de sesión."
+    
+    session_id = parts[1]
+    res = run_tool("chat_history.py", ["--action", "delete", "--user-id", sender_id, "--session-id", session_id])
+    if res and res.get("status") == "success":
+        return f"🗑️ *Sesión {session_id} eliminada* de tu historial."
+    return f"❌ No se pudo borrar la sesión `{session_id}`."
+
+def _handle_buscar_sesion(msg, sender_id, run_tool):
+    parts = msg.split(" ", 1)
+    if len(parts) < 2:
+        return "⚠️ Uso: `/buscar_sesion [palabra clave]`"
+    
+    query = parts[1].strip()
+    print(f"   🔍 Buscando sesiones con la palabra: '{query}'...")
+    
+    res = run_tool("chat_history.py", ["--action", "search", "--user-id", sender_id, "--query", query])
+    if res and res.get("status") == "success":
+        history = res.get("history", [])
+        if not history:
+            return f"🔎 No encontré sesiones que mencionen *'{query}'*."
+        
+        reply = f"🔎 *Resultados para '{query}':*\n\n"
+        for session in history:
+            reply += f"🆔 `{session['id']}` | 📅 {session['date']}\n"
+            reply += f"💬 _{session['summary']}_\n\n"
+        reply += "Usa `/resume [ID]` para cargar una de estas sesiones."
+        return reply
+    return "❌ Error al realizar la búsqueda."
+
+def _handle_exportar_sesion(msg, sender_id, run_tool):
+    parts = msg.split()
+    if len(parts) < 2:
+        return "⚠️ Uso: `/exportar_sesion [ID]`\nUsa `/resume` para ver los IDs."
+    
+    session_id = parts[1]
+    print(f"   📂 Exportando sesión {session_id} a Markdown...")
+    run_tool("telegram_tool.py", ["--action", "send", "--message", f"📂 Generando archivo Markdown para la sesión {session_id}...", "--chat-id", sender_id])
+    
+    res = run_tool("chat_history.py", ["--action", "export", "--user-id", sender_id, "--session-id", session_id])
+    if res and res.get("status") == "success":
+        filepath = res.get("file")
+        run_tool("telegram_tool.py", ["--action", "send-document", "--file-path", filepath, "--chat-id", sender_id, "--caption", f"📄 Exportación Sesión {session_id}"])
+        return f"✅ Sesión exportada correctamente a `docs/{os.path.basename(filepath)}`."
+    return f"❌ Error al exportar la sesión: {res.get('message', 'Desconocido')}"
 
 def _handle_limpiar(msg, sender_id, run_tool):
     print("   🧹 Ejecutando limpieza de archivos temporales...")
@@ -472,6 +559,10 @@ def _handle_ayuda(msg, sender_id, run_tool):
         "🔹 */status*: Muestra CPU y RAM del servidor.\n"
         "🔹 */limpiar*: Elimina archivos temporales y cachés.\n"
         "🔹 */reiniciar*: Borra historial y restablece personalidad.\n"
+        "🔹 */resume [ID]*: Lista o reanuda una charla del historial.\n"
+        "🔹 */borrar_sesion [ID]*: Elimina una charla del historial.\n"
+        "🔹 */buscar_sesion [palabra]*: Busca charlas por palabra clave.\n"
+        "🔹 */exportar_sesion [ID]*: Exporta una charla a un archivo MD.\n"
         "🔹 */modo [tipo]*: Cambia mi personalidad (serio, sarcastico...).\n"
         "🔹 */idioma [es/en]*: Cambia el idioma en el que te escucho.\n"
         "🔹 */usuarios*: Muestra los últimos 5 IDs registrados.\n"
@@ -1045,6 +1136,13 @@ COMMAND_HANDLERS = {
     "/modo": _handle_modo,
     "/reiniciar": _handle_reiniciar,
     "/reset": _handle_reiniciar,
+    "/resume": _handle_resume,
+    "/borrar_sesion": _handle_borrar_sesion,
+    "/delete_session": _handle_borrar_sesion,
+    "/buscar_sesion": _handle_buscar_sesion,
+    "/search_session": _handle_buscar_sesion,
+    "/exportar_sesion": _handle_exportar_sesion,
+    "/export_session": _handle_exportar_sesion,
     "/limpiar": _handle_limpiar,
     "/clean": _handle_limpiar,
     "/ayuda": _handle_ayuda,

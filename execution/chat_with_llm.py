@@ -259,7 +259,7 @@ def main():
         return
 
     add_chat_message("user", args.prompt)
-    history = get_chat_history(limit=10)
+    history = get_chat_history(limit=20) # Aumentamos a 20 para mayor contexto mañana
 
     # Creamos una copia de los mensajes para enviar al LLM con el contexto inyectado,
     # pero SIN ensuciar el historial guardado en disco.
