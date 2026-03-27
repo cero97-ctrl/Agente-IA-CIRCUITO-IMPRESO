@@ -22,9 +22,12 @@ def main():
         sys.exit(1)
 
     try:
-        # Construir la imagen usando el Dockerfile.sandbox existente
-        image, logs = client.images.build(path=project_root, dockerfile="Dockerfile.sandbox", tag="agent-sandbox:latest", rm=True, nocache=True)
-
+        # Construir la imagen con streaming de logs para mejor visibilidad
+        print("🚀 Iniciando construcción de la imagen...")
+        for line in client.api.build(path=project_root, dockerfile="Dockerfile.sandbox", tag="agent-sandbox:latest", decode=True, rm=True):
+            if 'stream' in line:
+                print(line['stream'], end='')
+        
         print("\n✅ Imagen 'agent-sandbox:latest' construida exitosamente.")
         print("   ✅ Soporte para KiCad (pcbnew), FreeCAD, FCGear y Electrónica incluido.")
         print("   Ahora tus scripts de Python volarán. 🚀")

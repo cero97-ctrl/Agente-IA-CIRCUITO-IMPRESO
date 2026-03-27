@@ -37,6 +37,32 @@ def main():
         print(f"   ℹ️  Archivo de sesión encontrado. Si el bot ignora mensajes, bórralo: rm {offset_path}")
     # -----------------------------
 
+    # --- CONFIGURAR MENÚ DE COMANDOS (Estilo Claude Code) ---
+    print("   📋 Sincronizando menú de comandos con Telegram...")
+    commands = [
+        {"command": "ayuda", "description": "Muestra el menú de ayuda principal"},
+        {"command": "freecad", "description": "Genera modelos 3D (ej: /freecad caja 20x20)"},
+        {"command": "kicad", "description": "Genera esquemático desde diseño activo"},
+        {"command": "pcb", "description": "Inicia el auto-enrutado de la placa"},
+        {"command": "fabricar", "description": "Genera Gerbers y Drills (.zip)"},
+        {"command": "gcode", "description": "Convierte Gerbers a G-Code CNC"},
+        {"command": "status", "description": "Verifica salud del sistema (CPU/RAM)"},
+        {"command": "versiones", "description": "Muestra versiones de KiCad/FreeCAD"},
+        {"command": "limpiar", "description": "Borra archivos temporales"},
+        {"command": "memorias", "description": "Lista recuerdos en la memoria RAG"}
+    ]
+    run_tool("telegram_tool.py", ["--action", "set-commands", "--commands", json.dumps(commands)])
+    # --------------------------------------------------------
+
+    # --- NOTIFICACIÓN DE INICIO ---
+    admin_id = os.getenv("TELEGRAM_CHAT_ID")
+    if admin_id:
+        ahora = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        mensaje_inicio = f"🚀 *Agente IA de Fabricación Digital Online*\n\n⏰ *Inicio:* {ahora}\n🛠 *Estado:* Listo para diseñar PCBs y modelos 3D.\n\nEnvía /ayuda para ver los comandos disponibles."
+        print(f"   📤 Enviando mensaje de bienvenida a {admin_id}...")
+        run_tool("telegram_tool.py", ["--action", "send", "--message", mensaje_inicio, "--chat-id", admin_id])
+    # -----------------------------
+
     last_health_check = time.time()
     HEALTH_CHECK_INTERVAL = 300  # Verificar cada 5 minutos
 

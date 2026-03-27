@@ -263,15 +263,36 @@ def download_file(file_id, dest_path):
         print(json.dumps({"status": "error", "message": str(e)}))
         sys.exit(1)
 
+def set_commands(commands_json):
+    """Registra la lista de comandos en el menú de Telegram (el menú que sale al escribir /)."""
+    if not TOKEN:
+        print(json.dumps({"status": "error", "message": "Falta TELEGRAM_BOT_TOKEN"}))
+        sys.exit(1)
+
+    url = f"https://api.telegram.org/bot{TOKEN}/setMyCommands"
+    try:
+        commands = json.loads(commands_json)
+        payload = {"commands": commands}
+        response = requests.post(url, json=payload, timeout=10)
+        response.raise_for_status()
+        print(json.dumps({"status": "success", "message": "Menú de comandos actualizado en Telegram."}))
+    except Exception as e:
+        print(json.dumps({"status": "error", "message": f"Error configurando comandos: {str(e)}"}))
+        sys.exit(1)
+
 def main():
     parser = argparse.ArgumentParser(description="Herramienta de integración con Telegram.")
-    parser.add_argument("--action", choices=["send", "check", "get-id", "download", "send-photo", "send-document", "send-voice"], required=True, help="Acción a realizar.")
+    parser.add_argument("--action", choices=[
+        "send", "check", "get-id", "download", "send-photo", 
+        "send-document", "send-voice", "set-commands"
+    ], required=True, help="Acción a realizar.")
     parser.add_argument("--message", help="Mensaje a enviar (requerido para --action send).")
     parser.add_argument("--chat-id", help="ID del chat destino (opcional, por defecto usa el del .env).")
     parser.add_argument("--file-id", help="ID del archivo a descargar (para --action download).")
     parser.add_argument("--dest", help="Ruta destino (para --action download).")
     parser.add_argument("--file-path", help="Ruta del archivo local a enviar (para --action send-photo).")
     parser.add_argument("--caption", help="Texto para la foto (para --action send-photo).")
+    parser.add_argument("--commands", help="Lista de comandos en JSON para --action set-commands.")
     
     args = parser.parse_args()
     
@@ -301,6 +322,11 @@ def main():
             print(json.dumps({"status": "error", "message": "Faltan argumentos --file-id o --dest"}))
             sys.exit(1)
         download_file(args.file_id, args.dest)
+    elif args.action == "set-commands":
+        if not args.commands:
+            print(json.dumps({"status": "error", "message": "Falta el argumento --commands"}))
+            sys.exit(1)
+        set_commands(args.commands)
 
 if __name__ == "__main__":
     main()
