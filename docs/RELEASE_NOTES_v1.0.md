@@ -1,7 +1,7 @@
-# Hito 1.0: Generación Automatizada de PCBs (Backend)
+# Hito 1.1: Gestión de Sesiones y Memoria Persistente
 
-**Estado:** Estable
-**Versión:** 1.0
+**Estado:** Estable (Actualizado)
+**Versión:** 1.1
 
 ## Descripción General
 El Agente IA ha alcanzado la capacidad de automatizar el ciclo completo de diseño de PCBs, desde la interpretación visual de un esquema hasta la generación de archivos de fabricación industrial, utilizando una arquitectura de contenedores para ejecutar herramientas CAD (KiCad).
@@ -40,6 +40,12 @@ El Agente IA ha alcanzado la capacidad de automatizar el ciclo completo de dise�
     *   Soporte para taladrado (Drill) y corte de contorno (Edge Cuts).
     *   Parámetros ajustados para compatibilidad con versiones legacy de `pcb2gcode`.
 
+### 6. Gestión de Sesiones (Nueva)
+*   **Motor:** SQLite + LLM Summarization.
+*   **Funcionalidad:** `/resume`, `/buscar_sesion`, `/exportar_sesion`.
+*   **Persistencia:** Guardado automático de contextos antes de reinicios de sistema.
+*   **Documentación:** Generación de archivos .md automáticos desde el historial.
+
 ## Cambios Técnicos Clave
 *   **Entorno Docker:** Se migró de `python:slim` a `ubuntu:22.04` para resolver dependencias de `pcbnew`.
 *   **Compatibilidad API KiCad 8:** Se migró toda la API de `wxPoint`/`wxSize` a `VECTOR2I` (requerido por KiCad 8.0.9+).
@@ -53,8 +59,11 @@ El Agente IA ha alcanzado la capacidad de automatizar el ciclo completo de dise�
     *   **Integración CNC:** Implementación de `pcb2gcode` en el Sandbox para conversión Gerber -> G-Code.
     *   **Compatibilidad Legacy:** Ajuste de parámetros de `pcb2gcode` para soportar la versión 1.1.4 (Ubuntu 22.04).
     *   **Diagnóstico:** Nuevo comando `/versiones` y script `check_tool_versions.py` para auditar el entorno.
+    *   **Memoria:** Aumento de ventana de contexto a 20 mensajes en `chat_with_llm.py`.
+    *   **Consistencia:** Migración de `chat_history.py` al directorio raíz de ejecución para cumplimiento de arquitectura de 3 capas.
 
 ## Siguientes Pasos (Rama Experimental)
 *   Desarrollo de algoritmos de Auto-enrutado (Pathfinding A*).
 *   Optimización de la ubicación de componentes (Placement).
 *   Integración de reglas de diseño (DRC).
+*   Implementación de búsqueda semántica profunda en el historial de sesiones.
