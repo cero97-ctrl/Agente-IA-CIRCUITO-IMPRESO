@@ -36,7 +36,12 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 - **Detección de Taladros**: Script `img_to_drill.py` usando OpenCV para generar archivos Excellon (.drl) desde imágenes.
 - **Empaquetado de Manufactura**: Script `create_manufacturing_zip.py` para crear ZIPs compatibles con PCBWay/JLCPCB.
 - **Patrones de Prueba**: Script `generate_test_pattern.py` para validar la detección de taladros.
+- **Optimización de Ventana de Contexto**: 
+  - Implementada compresión de historial (Soft Cap) al superar los 12 mensajes.
+  - Añadida poda de emergencia (Hard Cap) al superar los 30,000 caracteres para evitar errores de API y reducir latencia.
+- **Actualización de Menú de Comandos**: Refactorizado el menú visual de Telegram para incluir capacidades de diseño, investigación y memoria.
 - **Comandos de Telegram**: Soporte para "gerber", "drill" y "paquete" en el bot.
+- **Sincronización Total de Comandos**: Se han incluido todos los comandos operativos en el menú desplegable de Telegram para coincidir con la ayuda técnica.
 
 
 ## [1.0.0] - 2026-02-16

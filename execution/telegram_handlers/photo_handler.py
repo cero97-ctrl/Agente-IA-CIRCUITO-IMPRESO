@@ -21,8 +21,8 @@ def handle_photo(msg, sender_id, run_tool):
     reply_text = ""
     
     # Prioridad 1: Diseño de Circuitos (Comando explícito)
-    if "/diseñar" in caption_lower or "/design" in caption_lower:
-        design_prompt = caption.lower().replace("/diseñar", "").replace("/design", "").strip()
+    if "/diseñar" in caption_lower or "/disenar" in caption_lower or "/design" in caption_lower:
+        design_prompt = caption.lower().replace("/diseñar", "").replace("/disenar", "").replace("/design", "").strip()
         if not design_prompt:
             design_prompt = "un circuito electrónico genérico. Identifica componentes y conexiones."
             run_tool("telegram_tool.py", ["--action", "send", "--message", "⚠️ No incluiste una descripción, así que intentaré deducir la función del circuito.", "--chat-id", sender_id])

@@ -534,7 +534,7 @@ def _handle_ayuda(msg, sender_id, run_tool):
         "🤖 *Comandos Disponibles:*\n\n"
         "--- *Diseño y Fabricación* ---\n"
         "🔹 */freecad [descripción]*: Crea un modelo 3D (caja, cono, engranaje, etc).\n"
-        "🔹 */diseñar* (con foto): Analiza un dibujo de circuito.\n"
+        "🔹 */disenar* (con foto): Analiza un dibujo de circuito.\n"
         "🔹 */kicad*: Genera el esquemático KiCad desde un diseño.\n"
         "🔹 */pcb*: Genera el layout PCB desde un diseño.\n"
         "🔹 */fabricar*: Crea el paquete de Gerbers (.zip) para manufactura.\n"
@@ -1097,6 +1097,9 @@ def _handle_freecad(msg, sender_id, run_tool):
     else:
         return "⚠️ Se ejecutó el script pero no se encontraron los archivos de salida."
 
+def _handle_disenar_sin_foto(msg, sender_id, run_tool):
+    return "📸 El comando `/disenar` necesita una *foto adjunta*.\n\nEnvía una foto de tu circuito con el caption `/disenar [descripción]`.\nEjemplo: adjunta la foto y escribe `/disenar amplificador de audio`."
+
 COMMAND_HANDLERS = {
     "/investigar": _handle_investigar,
     "/research": _handle_investigar,
@@ -1145,6 +1148,8 @@ COMMAND_HANDLERS = {
     "/export_session": _handle_exportar_sesion,
     "/limpiar": _handle_limpiar,
     "/clean": _handle_limpiar,
+    "/disenar": _handle_disenar_sin_foto,
+    "/diseñar": _handle_disenar_sin_foto,
     "/ayuda": _handle_ayuda,
     "/help": _handle_ayuda,
     "/send_cnc": _handle_send_cnc,

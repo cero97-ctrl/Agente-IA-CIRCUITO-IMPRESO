@@ -46,6 +46,12 @@ El Agente IA ha alcanzado la capacidad de automatizar el ciclo completo de dise�
 *   **Persistencia:** Guardado automático de contextos antes de reinicios de sistema.
 *   **Documentación:** Generación de archivos .md automáticos desde el historial.
 
+### 7. Optimización Inteligente de Contexto
+*   **Gestión de Historial:** Implementación de un sistema de "ventana deslizante" que prioriza los mensajes más recientes y el contexto inicial de sistema.
+*   **Compresión Dinámica:** Reducción automática de la carga de tokens al detectar hilos de conversación extensos.
+*   **Protección contra Prompts Masivos:** Poda automática de archivos de entrada o logs que excedan los límites operativos seguros (30k caracteres).
+*   **Ahorro de Costos/Latencia:** Optimización de la cantidad de datos enviados a la API sin perder el hilo conductor de la tarea.
+
 ## Cambios Técnicos Clave
 *   **Entorno Docker:** Se migró de `python:slim` a `ubuntu:22.04` para resolver dependencias de `pcbnew`.
 *   **Compatibilidad API KiCad 8:** Se migró toda la API de `wxPoint`/`wxSize` a `VECTOR2I` (requerido por KiCad 8.0.9+).

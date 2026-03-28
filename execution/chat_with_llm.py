@@ -231,6 +231,23 @@ def chat_gemini(messages, model="gemini-flash-latest", system_instruction=None):
 
 
 def main():
+    """
+    Orquestador principal para la comunicación con LLMs.
+    
+    Realiza las siguientes tareas críticas:
+    1. Gestión de Memoria (RAG): Consulta ChromaDB para inyectar recuerdos relevantes.
+    2. Gestión de Historial: Recupera los últimos mensajes de la base de datos SQLite.
+    3. Optimización de Contexto:
+       - Soft Cap (>12 mensajes): Comprime el historial manteniendo el inicio y el final de la charla
+         para evitar el agotamiento de la ventana de contexto.
+       - Hard Cap (>30,000 chars): Realiza una poda de emergencia si el volumen de texto es excesivo
+         (ej. logs o netlists masivas).
+    4. Estrategia de Fallback: Intenta múltiples proveedores (Groq, OpenRouter, Gemini, OpenAI) 
+       en orden de prioridad si ocurren fallos de red o cuotas agotadas.
+    
+    Args:
+        --prompt (str): Mensaje del usuario o instrucción de la directiva.
+    """
     parser = argparse.ArgumentParser(description="Enviar un prompt a un LLM.")
     parser.add_argument("--prompt", required=True, help="El mensaje para el LLM.")
     parser.add_argument("--provider", choices=["openai", "anthropic", "gemini", "groq", "openrouter"], help="Proveedor de IA.")
@@ -259,7 +276,27 @@ def main():
         return
 
     add_chat_message("user", args.prompt)
-    history = get_chat_history(limit=20) # Aumentamos a 20 para mayor contexto mañana
+    raw_history = get_chat_history(limit=20) 
+
+    # --- GESTIÓN DINÁMICA DE CONTEXTO ---
+    soft_cap = int(os.getenv("CONTEXT_SOFT_CAP_MESSAGES", "12"))
+    hard_cap = int(os.getenv("CONTEXT_HARD_CAP_CHARS", "30000"))
+
+    # Si el historial es muy largo, comprimimos los mensajes intermedios para ahorrar ventana
+    if len(raw_history) > soft_cap:
+        print(f"✂️  [Context] Comprimiendo historial ({len(raw_history)} mensajes)...", file=sys.stderr)
+        # Mantenemos los 2 primeros (contexto inicial), los últimos 5 (flujo actual) 
+        # y el resto debería idealmente resumirse. Aquí hacemos un truncado inteligente.
+        history = raw_history[:2] + [{"role": "system", "content": "... [Historial antiguo omitido para optimizar contexto] ..."}] + raw_history[-8:]
+    else:
+        history = raw_history
+
+    # Verificación de tamaño aproximado (evitar prompts masivos)
+    total_chars = sum(len(str(m.get('content', ''))) for m in history)
+    if total_chars > hard_cap: # Umbral de seguridad aproximado
+        print(f"⚠️  [Context] Prompt muy largo ({total_chars} chars). Aplicando poda de emergencia.", file=sys.stderr)
+        # Si el prompt es demasiado grande, reducimos agresivamente el historial
+        history = [history[0]] + history[-3:] 
 
     # Creamos una copia de los mensajes para enviar al LLM con el contexto inyectado,
     # pero SIN ensuciar el historial guardado en disco.
