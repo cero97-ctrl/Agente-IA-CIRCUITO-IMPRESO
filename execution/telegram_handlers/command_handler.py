@@ -620,9 +620,28 @@ def _handle_pcb(msg, sender_id, run_tool):
     if not os.path.exists(design_file):
         return "⚠️ No hay un diseño activo en memoria. Primero usa `/diseñar` con una foto de tu circuito."
 
-    run_tool("telegram_tool.py", ["--action", "send", "--message", "⚙️ Generando archivo PCB (.kicad_pcb) automáticamente...", "--chat-id", sender_id])
+    # Intentar extraer dimensiones del comando (ej: /pcb 100x80)
+    parts = msg.split()
+    width, height, margin = 150, 100, 25
+    if len(parts) > 1:
+        dim_str = parts[1].lower()
+        if 'x' in dim_str:
+            try:
+                w_s, h_s = dim_str.split('x')
+                width, height = int(w_s), int(h_s)
+            except ValueError:
+                pass
+
+    # Intentar extraer margen (ej: /pcb 100x80 15)
+    if len(parts) > 2:
+        try:
+            margin = int(parts[2])
+        except ValueError:
+            pass
+
+    run_tool("telegram_tool.py", ["--action", "send", "--message", f"⚙️ Generando archivo PCB ({width}x{height}mm, Margen: {margin}mm) automáticamente...", "--chat-id", sender_id])
     output_script_path = os.path.join(".tmp", "create_pcb_script.py")
-    res_gen = run_tool("generate_kicad_pcb_script.py", ["--json", design_file, "--output", output_script_path])
+    res_gen = run_tool("generate_kicad_pcb_script.py", ["--json", design_file, "--output", output_script_path, "--width", str(width), "--height", str(height), "--margin", str(margin)])
 
     if not (res_gen and res_gen.get("status") == "success" and os.path.exists(output_script_path)):
         err = res_gen.get("message") if res_gen else "Error desconocido"

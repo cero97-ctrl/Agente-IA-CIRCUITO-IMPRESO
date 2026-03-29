@@ -12,7 +12,7 @@ import sys
 # Este script NO importa pcbnew directamente, ya que está diseñado para
 # generar otro script que SÍ lo importará dentro de KiCad.
 
-def generate_pcb_script(design_json_path, output_script_path):
+def generate_pcb_script(design_json_path, output_script_path, width=150, height=100, margin=25):
     """
     Crea un script Python para KiCad PCB Editor.
     """
@@ -83,12 +83,11 @@ def generate_pcb_script(design_json_path, output_script_path):
         "    PATHFINDING_AVAILABLE = False",
         "",
         "# --- Configuración de la Placa ---",
-        "BOARD_WIDTH_MM = 150",
-        "BOARD_HEIGHT_MM = 100",
-        "GRID_SPACING_X_MM = 30",
-        "GRID_SPACING_Y_MM = 30",
-        "START_X_MM = 25",
-        "START_Y_MM = 25",
+        f"BOARD_WIDTH_MM = {width}",
+        f"BOARD_HEIGHT_MM = {height}",
+        f"START_X_MM = {margin}",
+        f"START_Y_MM = {margin}",
+        "DEFAULT_SPACING = 20  # mm entre componentes",
         "",
         "# --- Helper para convertir mm a unidades internas de KiCad (nanómetros) ---",
         "def mm_to_nm(mm_val):",
@@ -96,15 +95,6 @@ def generate_pcb_script(design_json_path, output_script_path):
         "",
         "# --- Crear una nueva placa ---",
         "board = pcbnew.BOARD()",
-        "",
-        "# --- Definir el contorno de la placa (Edge.Cuts) ---",
-        "edge_layer = pcbnew.Edge_Cuts",
-        "board_outline = pcbnew.PCB_SHAPE(board)",
-        "board_outline.SetShape(pcbnew.SHAPE_T_RECT)",
-        "board_outline.SetStart(pcbnew.VECTOR2I(mm_to_nm(0), mm_to_nm(0)))",
-        "board_outline.SetEnd(pcbnew.VECTOR2I(mm_to_nm(BOARD_WIDTH_MM), mm_to_nm(BOARD_HEIGHT_MM)))",
-        "board_outline.SetLayer(edge_layer)",
-        "board.Add(board_outline)",
         "",
         "# --- Datos de componentes y netlist (inyectados desde el JSON original) ---",
         f"components_data = {json.dumps(components, indent=2)}",
@@ -137,6 +127,43 @@ def generate_pcb_script(design_json_path, output_script_path):
         "    board.Add(fp)",
         "    return fp",
         "",
+        "# --- Cálculo de Rejilla y Tamaño de Placa ---",
+        "n_comp = len(components_data)",
+        "min_margin = START_X_MM # START_X_MM ahora representa el margen mínimo deseado",
+        "",
+        "# Calcular el número de columnas y filas para la rejilla de componentes",
+        "# Asegurarse de que haya al menos 1 columna",
+        "cols_count = max(1, int((BOARD_WIDTH_MM - 2 * min_margin) // DEFAULT_SPACING))",
+        "if cols_count > n_comp: cols_count = n_comp",
+        "rows_count = math.ceil(n_comp / cols_count)",
+        "",
+        "# Calcular el ancho y alto real que ocupará la rejilla de componentes",
+        "actual_grid_width = cols_count * DEFAULT_SPACING",
+        "actual_grid_height = rows_count * DEFAULT_SPACING",
+        "",
+        "# Calcular el nuevo START_X_MM y START_Y_MM para centrar la rejilla",
+        "START_X_MM = max(min_margin, (BOARD_WIDTH_MM - actual_grid_width) / 2)",
+        "START_Y_MM = max(min_margin, (BOARD_HEIGHT_MM - actual_grid_height) / 2)",
+        "",
+        "# Pre-calcular límites para ajustar el borde de la placa",
+        "max_x_mm = BOARD_WIDTH_MM",
+        "max_y_mm = BOARD_HEIGHT_MM",
+        "for i in range(n_comp):",
+        "    col = i % cols_count",
+        "    row = i // cols_count",
+        "    px = START_X_MM + col * DEFAULT_SPACING",
+        "    py = START_Y_MM + row * DEFAULT_SPACING",
+        "    if px + 15 > max_x_mm: max_x_mm = px + 15",
+        "    if py + 15 > max_y_mm: max_y_mm = py + 15",
+        "",
+        "# --- Definir el contorno de la placa (Edge.Cuts) ---",
+        "board_outline = pcbnew.PCB_SHAPE(board)",
+        "board_outline.SetShape(pcbnew.SHAPE_T_RECT)",
+        "board_outline.SetStart(pcbnew.VECTOR2I(0, 0))",
+        "board_outline.SetEnd(pcbnew.VECTOR2I(mm_to_nm(max_x_mm), mm_to_nm(max_y_mm)))",
+        "board_outline.SetLayer(pcbnew.Edge_Cuts)",
+        "board.Add(board_outline)",
+        "",
         "# --- Cargar y colocar Footprints (Huellas) ---",
         "footprints_by_ref = {}",
         "for i, comp in enumerate(components_data):",
@@ -167,10 +194,10 @@ def generate_pcb_script(design_json_path, output_script_path):
         "            footprint_name = 'Resistor_THT:R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal'",
         "    ",
         "    # Calcular posición en una cuadrícula simple",
-        "    col = i % (BOARD_WIDTH_MM // GRID_SPACING_X_MM)",
-        "    row = i // (BOARD_WIDTH_MM // GRID_SPACING_X_MM)",
-        "    pos_x_mm = START_X_MM + col * GRID_SPACING_X_MM",
-        "    pos_y_mm = START_Y_MM + row * GRID_SPACING_Y_MM",
+        "    col = i % cols_count",
+        "    row = i // cols_count",
+        "    pos_x_mm = START_X_MM + col * DEFAULT_SPACING",
+        "    pos_y_mm = START_Y_MM + row * DEFAULT_SPACING",
         "    ",
         "    # Intentar cargar la huella desde las librerías de KiCad",
         "    pos_x_nm = mm_to_nm(pos_x_mm)",
@@ -441,6 +468,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Genera un script Python para crear un archivo KiCad PCB (.kicad_pcb).")
     parser.add_argument("--json", required=True, help="Ruta al archivo JSON de diseño.")
     parser.add_argument("--output", required=True, help="Ruta de salida para el script Python generado.")
+    parser.add_argument("--width", type=int, default=150, help="Ancho de la placa en mm.")
+    parser.add_argument("--height", type=int, default=100, help="Alto de la placa en mm.")
+    parser.add_argument("--margin", type=int, default=25, help="Margen inicial para componentes en mm.")
     args = parser.parse_args()
 
-    generate_pcb_script(args.json, args.output)
+    generate_pcb_script(args.json, args.output, args.width, args.height, args.margin)
