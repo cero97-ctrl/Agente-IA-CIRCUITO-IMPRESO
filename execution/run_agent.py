@@ -17,6 +17,8 @@ class Colors:
     ENDC = '\033[0m'
     BOLD = '\033[1m'
 
+# Ruta base para ejecución robusta (directorio donde reside este script)
+EXECUTION_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def type_effect(text, delay=0.01):
     """Simula el efecto de escritura de una IA."""
@@ -29,7 +31,7 @@ def type_effect(text, delay=0.01):
 
 def run_script(script_name, args=[]):
     """Ejecuta un script de la carpeta execution/."""
-    script_path = os.path.join("execution", script_name)
+    script_path = os.path.join(EXECUTION_DIR, script_name)
     if not os.path.exists(script_path):
         print(f"{Colors.FAIL}❌ Error: Script {script_name} no encontrado.{Colors.ENDC}")
         return
@@ -107,7 +109,7 @@ def main():
                     read_code = f"with open('{path_in_container}', 'r', encoding='utf-8') as f: print(f.read())"
                 
                 # Ejecutar run_sandbox.py
-                sandbox_script = os.path.join("execution", "run_sandbox.py")
+                sandbox_script = os.path.join(EXECUTION_DIR, "run_sandbox.py")
                 proc_read = subprocess.run(
                     [sys.executable, sandbox_script, "--code", read_code],
                     capture_output=True, text=True
@@ -122,7 +124,7 @@ def main():
                         else:
                             # 2. Guardar en memoria
                             full_text = f"Contenido del documento '{filename}':\n\n{content}"
-                            save_script = os.path.join("execution", "save_memory.py")
+                            save_script = os.path.join(EXECUTION_DIR, "save_memory.py")
                             
                             print(f"{Colors.WARNING}💾 Guardando en memoria vectorial...{Colors.ENDC}")
                             proc_save = subprocess.run(
@@ -160,7 +162,7 @@ def main():
                 prompt = parts[1]
 
                 # Conexión con LLM Real
-                chat_script = os.path.join("execution", "chat_with_llm.py")
+                chat_script = os.path.join(EXECUTION_DIR, "chat_with_llm.py")
 
                 if os.path.exists(chat_script):
                     sys.stdout.write(f"{Colors.BLUE}Gemini (Thinking...) > {Colors.ENDC}")

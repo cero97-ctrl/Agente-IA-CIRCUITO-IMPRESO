@@ -62,6 +62,7 @@ def main():
         {"command": "mis_recordatorios", "description": "Muestra tus alarmas activas"},
         {"command": "borrar_recordatorio", "description": "Elimina una alarma usando su ID"},
         {"command": "status", "description": "Estado del servidor y salud del sistema"},
+        {"command": "check", "description": "Alias para verificar la salud del sistema"},
         {"command": "versiones", "description": "Muestra versiones de herramientas en el Sandbox"},
         {"command": "limpiar", "description": "Elimina archivos temporales y basura"},
         {"command": "reiniciar", "description": "Borra el historial y restablece la personalidad"},

@@ -17,4 +17,6 @@ autopep8
 Pillow
 beautifulsoup4
 PyYAML
+opencv-python
+numpy
 pytest

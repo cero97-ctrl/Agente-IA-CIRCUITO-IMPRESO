@@ -86,7 +86,7 @@ Enfócate en la practicidad y la implementación con herramientas libres (Open S
 
         report_content = llm_res["content"]
         safe_topic = "".join([c if c.isalnum() else "_" for c in topic])[:30]
-        filename = f"Reporte_Medico_{safe_topic}.md"
+        filename = f"Reporte_Tecnico_{safe_topic}.md"
         docs_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", filename)
 
         with open(docs_path, "w", encoding="utf-8") as f:
@@ -668,13 +668,18 @@ def _handle_pcb(msg, sender_id, run_tool):
                     if routing_summary:
                         final_caption += f"\n\n{routing_summary}"
                     run_tool("telegram_tool.py", ["--action", "send-photo", "--file-path", expected_png, "--chat-id", sender_id, "--caption", final_caption])
-            return "¡Éxito! He generado el archivo de placa automáticamente usando el motor de KiCad en el servidor."
+                if routing_summary and "❌" in routing_summary:
+                    return "⚠️ El archivo PCB fue generado, pero algunas conexiones no pudieron enrutarse automáticamente. Revisa la ubicación de los componentes."
+                return "¡Éxito! He generado el archivo de placa y las pistas automáticamente."
         else:
-            err_log = res_exec.get("stderr", "") or res_exec.get("message", "")
+            stdout = res_exec.get("stdout", "")
+            stderr = res_exec.get("stderr", "")
+            msg_err = res_exec.get("message", "")
+            err_log = f"{stdout}\n{msg_err}\n{stderr}".strip()
             run_tool("telegram_tool.py", ["--action", "send-document", "--file-path", output_script_path, "--chat-id", sender_id, "--caption", "Script de KiCad PCB (Python) - Fallback"])
             return (
-                f"⚠️ No pude generar el PCB automáticamente (¿Falta instalar `kicad` en el entorno Docker?).\n"
-                f"Error: `{err_log[:100]}...`\n\n"
+                f"⚠️ Error en la generación automática de la placa (PCB).\n"
+                f"Detalle del error:\n```\n{err_log[-1000:] if err_log else 'Error desconocido'}\n```\n\n"
                 "Te envío el script para que lo ejecutes manualmente en KiCad > Consola de Scripting."
             )
     except Exception as e:

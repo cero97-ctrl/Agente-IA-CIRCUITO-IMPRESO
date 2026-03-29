@@ -14,7 +14,7 @@ class Colors:
     ENDC = '\033[0m'
     BOLD = '\033[1m'
 
-REQUIRED_DIRS = ["execution", "directives", "docs", ".tmp"]
+REQUIRED_DIRS = ["execution", "directives", "docs", ".tmp", "telegram_handlers", "data"]
 REQUIRED_FILES = [".env", "requirements.txt", "README.md"]
 # Mapeo de nombre de paquete pip -> nombre de importación
 REQUIRED_MODULES = {
@@ -24,7 +24,22 @@ REQUIRED_MODULES = {
     "chromadb": "chromadb",
     "docker": "docker",
     "pypdf": "pypdf",
-    "PyYAML": "yaml"
+    "PyYAML": "yaml",
+    "pyserial": "serial",
+    "opencv-python": "cv2",
+    "numpy": "numpy",
+    "autopep8": "autopep8",
+    "pathfinding": "pathfinding",
+    "pcb-tools-extension": "gerber",
+    "python-telegram-bot": "telegram",
+    "duckduckgo-search": "duckduckgo_search",
+    "SpeechRecognition": "speech_recognition",
+    "Pillow": "PIL",
+    "pydub": "pydub",
+    "gTTS": "gtts",
+    "psutil": "psutil",
+    "beautifulsoup4": "bs4",
+    "pytest": "pytest"
 }
 
 def check_python_version():
@@ -70,6 +85,16 @@ def check_files():
             if f == ".env":
                 print(f"{Colors.WARNING}   -> Crea un archivo .env con tus API KEYS.{Colors.ENDC}")
             all_ok = False
+            
+    # Verificación adicional de contenido en .env
+    if all_ok:
+        from dotenv import load_dotenv
+        load_dotenv(os.path.join(root, ".env"))
+        # El bot usa TELEGRAM_TOKEN en bot.py y TELEGRAM_BOT_TOKEN en otros scripts
+        token = os.getenv("TELEGRAM_BOT_TOKEN") or os.getenv("TELEGRAM_TOKEN")
+        if not token:
+            print(f"{Colors.WARNING}⚠️  Token de Telegram no encontrado (TELEGRAM_BOT_TOKEN o TELEGRAM_TOKEN) en .env{Colors.ENDC}")
+            # No marcamos como error crítico para permitir desarrollo offline
     return all_ok
 
 def check_dependencies():
@@ -83,9 +108,84 @@ def check_dependencies():
             print(f"{Colors.FAIL}❌ {package} NO instalado (Falla import: {module_name}){Colors.ENDC}")
             all_ok = False
     
+    try:
+        importlib.import_module("sqlite3")
+        print(f"{Colors.OKGREEN}✅ sqlite3 (Standard Library) disponible{Colors.ENDC}")
+    except ImportError:
+        print(f"{Colors.FAIL}❌ sqlite3 NO disponible{Colors.ENDC}")
+        all_ok = False
+    
     if not all_ok:
         print(f"\n{Colors.WARNING}💡 Ejecuta: pip install -r requirements.txt{Colors.ENDC}")
     return all_ok
+
+def check_database():
+    print(f"\n{Colors.HEADER}6. Verificando Base de Datos (SQLite)...{Colors.ENDC}")
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    db_path = os.path.join(root, ".tmp", "agent_database.db")
+
+    # Tablas críticas requeridas por db_manager.py para el funcionamiento del bot
+    REQUIRED_TABLES = ["reminders", "users", "chat_history"]
+    
+    try:
+        import sqlite3
+        if not os.path.exists(db_path):
+            print(f"{Colors.WARNING}⚠️  Archivo de base de datos no encontrado en .tmp/. Se creará al iniciar el bot.{Colors.ENDC}")
+            return True
+            
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        
+        # Obtener lista de tablas existentes para validar el esquema
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        tables = [row[0] for row in cursor.fetchall()]
+        conn.close()
+
+        missing = [t for t in REQUIRED_TABLES if t not in tables]
+
+        if not missing:
+            print(f"{Colors.OKGREEN}✅ Conexión a SQLite exitosa. Todas las tablas críticas presentes ({len(tables)} en total).{Colors.ENDC}")
+            return True
+        else:
+            print(f"{Colors.WARNING}⚠️  Base de datos conectada pero faltan tablas: {', '.join(missing)}{Colors.ENDC}")
+            print(f"{Colors.WARNING}   -> Nota: Estas se generarán automáticamente al ejecutar listen_telegram.py.{Colors.ENDC}")
+            return True
+            
+    except Exception as e:
+        print(f"{Colors.FAIL}❌ Error crítico al acceder a la base de datos: {e}{Colors.ENDC}")
+        return False
+
+def check_opencv_vision():
+    print(f"\n{Colors.HEADER}7. Verificando Motor de Visión (OpenCV)...{Colors.ENDC}")
+    try:
+        import cv2
+        import numpy as np
+        
+        # Crear imagen sintética (Fondo blanco)
+        image = np.ones((100, 100, 3), dtype=np.uint8) * 255
+        # Dibujar un "pad" (círculo negro) para simular un punto de taladrado
+        cv2.circle(image, (50, 50), 10, (0, 0, 0), -1)
+        
+        # Procesar: Convertir a gris y aplicar desenfoque mediano
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        blurred = cv2.medianBlur(gray, 5)
+        
+        # Intentar detectar el círculo mediante Hough
+        circles = cv2.HoughCircles(
+            blurred, 
+            cv2.HOUGH_GRADIENT, 1, 20,
+            param1=50, param2=10, minRadius=5, maxRadius=15
+        )
+        
+        if circles is not None:
+            print(f"{Colors.OKGREEN}✅ OpenCV procesando imágenes y detectando patrones correctamente{Colors.ENDC}")
+            return True
+        else:
+            print(f"{Colors.FAIL}❌ OpenCV cargado pero falló la detección de prueba funcional{Colors.ENDC}")
+            return False
+    except Exception as e:
+        print(f"{Colors.FAIL}❌ Error en prueba funcional de visión: {e}{Colors.ENDC}")
+        return False
 
 def check_docker():
     print(f"\n{Colors.HEADER}5. Verificando Docker (Opcional para Sandbox)...{Colors.ENDC}")
@@ -118,7 +218,9 @@ def main():
         check_directories(),
         check_files(),
         check_dependencies(),
-        check_docker()
+        check_docker(),
+        check_database(),
+        check_opencv_vision()
     ]
     
     print("\n" + "="*40)
