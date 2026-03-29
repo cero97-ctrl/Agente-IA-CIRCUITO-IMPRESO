@@ -25,8 +25,9 @@ def main():
     docs_dir = os.path.join(project_root, "docs")
     if os.path.exists(docs_dir):
         print(f"   - Limpiando la carpeta {docs_dir}...")
+        essential_docs = ["CNC.md", "COMMAND_REFERENCE.md", ".gitignore"]
         for filename in os.listdir(docs_dir):
-            if filename == ".gitignore":
+            if filename in essential_docs:
                 continue
             file_path = os.path.join(docs_dir, filename)
             try:

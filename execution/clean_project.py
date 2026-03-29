@@ -74,6 +74,23 @@ def main():
             except Exception as e:
                 print(f"     ⚠️ Error borrando {f}: {e}", file=sys.stderr)
 
+    # 4. Limpiar archivos no esenciales en docs/
+    docs_dir = os.path.join(project_root, "docs")
+    if os.path.exists(docs_dir):
+        print("   - Limpiando archivos no esenciales en docs/ ...", file=sys.stderr)
+        for filename in os.listdir(docs_dir):
+            # No borrar archivos esenciales
+            if filename in ["CNC.md", "COMMAND_REFERENCE.md", ".gitignore"]:
+                continue
+
+            if filename.endswith(".tex") or filename.startswith("Reporte_Tecnico_"):
+                f_path = os.path.join(docs_dir, filename)
+                try:
+                    os.remove(f_path)
+                    print(f"     Eliminado de docs/: {filename}", file=sys.stderr)
+                except Exception as e:
+                    print(f"     ⚠️ Error borrando {filename}: {e}", file=sys.stderr)
+
     print(json.dumps({"status": "success", "message": "Limpieza completada."}))
 
 
