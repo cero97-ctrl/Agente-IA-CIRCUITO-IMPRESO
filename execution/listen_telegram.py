@@ -50,6 +50,7 @@ def main():
         {"command": "send_cnc", "description": "Envía un archivo G-Code a la máquina CNC"},
         {"command": "ayuda_cnc", "description": "Documentación sobre el flujo de trabajo CNC"},
         {"command": "investigar", "description": "Busca en internet y genera un resumen"},
+        {"command": "buscar_esquema", "description": "Busca y descarga un esquema PNG/JPG de la red"},
         {"command": "reporte", "description": "Genera un informe técnico detallado en docs/"},
         {"command": "resumir", "description": "Lee y resume el contenido de una URL"},
         {"command": "resumir_archivo", "description": "Resume un archivo de la carpeta docs/"},

@@ -31,7 +31,7 @@ def main():
             file_path = os.path.join(tmp_dir, filename)
             try:
                 # Mantener archivos críticos (base de datos, .gitkeep)
-                if filename in [".gitkeep", "agent_database.db", "telegram_offset.txt", "last_3d_params.json", "current_design.json"]:
+                if filename in [".gitkeep", "agent_database.db", "telegram_offset.txt", "current_design.json"] or filename.startswith("last_3d_params"):
                     print(f"     🛡️ Protegiendo archivo crítico: {filename}", file=sys.stderr)
                     continue
 

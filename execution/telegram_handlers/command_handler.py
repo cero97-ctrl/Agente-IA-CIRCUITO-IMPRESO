@@ -543,6 +543,7 @@ def _handle_ayuda(msg, sender_id, run_tool):
         "🔹 */ayuda_cnc*: Envía la documentación sobre CNC.\n\n"
         "--- *Utilidades Generales* ---\n"
         "🔹 */investigar [tema]*: Busca en internet y resume.\n"
+        "🔹 */buscar_esquema [tema]*: Descarga un PNG de un circuito desde la red.\n"
         "🔹 */reporte [tema]*: Genera un informe técnico detallado en docs/.\n"
         "🔹 */resumir [url]*: Lee una web y te dice de qué trata.\n"
         "🔹 */resumir_archivo [nombre]*: Lee un archivo de `docs/` y lo resume.\n"
@@ -885,7 +886,7 @@ def _handle_freecad(msg, sender_id, run_tool):
     run_tool("telegram_tool.py", ["--action", "send", "--message", f"🧠 Interpretando tu diseño 3D: '{description}'...", "--chat-id", sender_id])
 
     # 0. Cargar contexto anterior (si existe)
-    last_params_path = os.path.join(".tmp", "last_3d_params.json")
+    last_params_path = os.path.join(".tmp", f"last_3d_params_{sender_id}.json")
     last_params_context = "Ninguno"
     if os.path.exists(last_params_path):
         try:
@@ -1044,7 +1045,13 @@ def _handle_freecad(msg, sender_id, run_tool):
             elif "```" in content:
                 params_json_str = content.split('```')[1].split('```')[0].strip()
             else:
-                params_json_str = content.strip()
+                # Intentar extraer buscando los límites de las llaves JSON
+                start_idx = content.find('{')
+                end_idx = content.rfind('}')
+                if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+                    params_json_str = content[start_idx:end_idx+1].strip()
+                else:
+                    params_json_str = content.strip()
             
             json.loads(params_json_str) # Validar
             
@@ -1121,6 +1128,56 @@ def _handle_freecad(msg, sender_id, run_tool):
     else:
         return "⚠️ Se ejecutó el script pero no se encontraron los archivos de salida."
 
+def _handle_buscar_esquema(msg, sender_id, run_tool):
+    topic = msg.split(" ", 1)[1] if " " in msg else ""
+    if not topic:
+        return "⚠️ Uso: /buscar_esquema [nombre del circuito]\nEj: `/buscar_esquema arduino uno schematic`"
+
+    run_tool("telegram_tool.py", ["--action", "send", "--message", f"🔍 Buscando esquemas de '{topic}' en la red...", "--chat-id", sender_id])
+    
+    # 1. Buscar enlaces usando la herramienta de investigación
+    query = f"circuit diagram schematic diagram png jpg {topic}"
+    res_search = run_tool("research_topic.py", ["--query", query, "--output-file", ".tmp/img_search.txt"])
+    
+    if not (res_search and res_search.get("status") == "success"):
+        return "❌ Error en la fase de búsqueda."
+
+    try:
+        with open(".tmp/img_search.txt", "r", encoding="utf-8") as f:
+            search_data = f.read()
+        
+        # 2. Extraer URL de imagen directa con el LLM
+        prompt = f"De los siguientes resultados, identifica una URL directa que apunte a una imagen (PNG/JPG) de un esquema electrónico para '{topic}'. Responde SOLO con la URL. Si no hay, responde 'NONE'.\n\nResultados:\n{search_data}"
+        llm_res = run_tool("chat_with_llm.py", ["--prompt", prompt, "--no-rag"])
+        
+        img_url = llm_res.get("content", "").strip()
+        if "http" not in img_url or "NONE" in img_url.upper():
+            return "😕 No encontré una imagen directa. Prueba con un término más específico."
+
+        # 3. Descargar la imagen usando el Sandbox (Python nativo para evitar dependencias extra)
+        download_code = f"""
+import urllib.request
+import os
+try:
+    req = urllib.request.Request('{img_url}', headers={{'User-Agent': 'Mozilla/5.0'}})
+    ext = '{img_url}'.split('.')[-1].split('?')[0].lower()
+    if ext not in ['png', 'jpg', 'jpeg']: ext = 'png'
+    out_path = f'/mnt/out/esquema_descargado.{{ext}}'
+    with urllib.request.urlopen(req, timeout=15) as response, open(out_path, 'wb') as f:
+        f.write(response.read())
+    print(out_path)
+except Exception as e: print(f'Error: {{e}}')
+"""
+        res_dl = run_tool("run_sandbox.py", ["--code", download_code])
+        output = res_dl.get("stdout", "").strip()
+        if "/mnt/out/" in output:
+            local_path = os.path.join(".out", os.path.basename(output))
+            run_tool("telegram_tool.py", ["--action", "send-photo", "--file-path", local_path, "--chat-id", sender_id, "--caption", f"✅ Esquema de '{topic}' descargado.\n\nAhora puedes usar `/disenar` respondiendo a esta foto."])
+            return ""
+        return f"❌ Error al descargar: {output}"
+    except Exception as e:
+        return f"❌ Error procesando la búsqueda: {e}"
+
 def _handle_disenar_sin_foto(msg, sender_id, run_tool):
     return "📸 El comando `/disenar` necesita una *foto adjunta*.\n\nEnvía una foto de tu circuito con el caption `/disenar [descripción]`.\nEjemplo: adjunta la foto y escribe `/disenar amplificador de audio`."
 
@@ -1142,6 +1199,8 @@ COMMAND_HANDLERS = {
     "/idioma": _handle_idioma,
     "/lang": _handle_idioma,
     "/ayuda_cnc": _handle_ayuda_cnc,
+    "/buscar_esquema": _handle_buscar_esquema,
+    "/search_schematic": _handle_buscar_esquema,
     "/ingestar": _handle_ingestar,
     "/ingest": _handle_ingestar,
     "/resumir_archivo": _handle_resumir_archivo,
