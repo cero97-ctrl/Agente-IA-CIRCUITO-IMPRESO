@@ -538,6 +538,7 @@ def _handle_ayuda(msg, sender_id, run_tool):
         "🔹 */kicad*: Genera el esquemático KiCad desde un diseño.\n"
         "🔹 */pcb*: Genera el layout PCB desde un diseño.\n"
         "🔹 */fabricar*: Crea el paquete de Gerbers (.zip) para manufactura.\n"
+        "🔹 */deeppcb*: Exporta a formato Specctra DSN para enrutado por IA.\n"
         "🔹 */gcode*: Genera el G-Code (.nc) para fresado CNC desde los Gerbers.\n"
         "🔹 */send_cnc [puerto] [archivo]*: Envía G-Code a la CNC.\n"
         "🔹 */ayuda_cnc*: Envía la documentación sobre CNC.\n\n"
@@ -600,7 +601,7 @@ def _handle_kicad(msg, sender_id, run_tool):
         details = res.get("details", "")
         return f"❌ Error generando la netlist: {err}\n{details}"
 
-    run_tool("telegram_tool.py", ["--action", "send-document", "--file-path", output_net, "--chat-id", sender_id, "--caption", "KiCad File (.kicad_sch)\nGenerado para KiCad 9.0"])
+    run_tool("telegram_tool.py", ["--action", "send-document", "--file-path", output_net, "--chat-id", sender_id, "--caption", "KiCad File (.kicad_sch)\nGenerado para KiCad 8.0"])
     
     run_tool("telegram_tool.py", ["--action", "send", "--message", "🎨 Generando vista previa del esquemático...", "--chat-id", sender_id])
     render_script_path = os.path.join("execution", "render_sch.py")
@@ -614,7 +615,7 @@ def _handle_kicad(msg, sender_id, run_tool):
         if res_render.get("status") == "success" and os.path.exists(expected_png):
             run_tool("telegram_tool.py", ["--action", "send-photo", "--file-path", expected_png, "--chat-id", sender_id, "--caption", "👁️ Vista Previa Esquemático"])
 
-    return "✅ Archivo generado como `circuito_generado.kicad_sch`. Listo para importar en KiCad 9.0."
+    return "✅ Archivo generado como `circuito_generado.kicad_sch`. Listo para importar en KiCad 8.0."
 
 def _handle_pcb(msg, sender_id, run_tool):
     design_file = os.path.join(".tmp", "current_design.json")
@@ -661,11 +662,14 @@ def _handle_pcb(msg, sender_id, run_tool):
                     try:
                         parts = {p.split('=')[0].strip(): int(p.split('=')[1]) for p in summary_data.split(',')}
                         routed, failed = parts.get('Routed', 0), parts.get('Failed', 0)
+                        drc_v = parts.get('DRC', 0)
                         total = parts.get('Total', routed + failed)
+                        iterations = parts.get('Iterations', 1)
                         if total > 0:
                             success_rate = (routed / total) * 100
                             emoji = "✅" if success_rate == 100 else ("⚠️" if success_rate > 50 else "❌")
-                            routing_summary = f"{emoji} *Resumen de Enrutado:*\n- Conexiones Trazadas: {routed}/{total} ({success_rate:.0f}%)\n- Conexiones Fallidas: {failed}"
+                            drc_emoji = "✅" if drc_v == 0 else "❌"
+                        routing_summary = f"📍 *Ubicación de Componentes:*\n- Total Conexiones: {total}\n- Estado: Listo para DeepPCB\n- DRC Local: Omitido (Enrutado externo)"
                     except Exception as e:
                         print(f"   [!] Error parsing routing summary: {e}")
                         routing_summary = f"📊 Resumen: {summary_data}"
@@ -673,7 +677,7 @@ def _handle_pcb(msg, sender_id, run_tool):
 
         expected_pcb = os.path.join(".out", "circuito_generado.kicad_pcb")
         if res_exec.get("status") == "success" and os.path.exists(expected_pcb):
-            run_tool("telegram_tool.py", ["--action", "send-document", "--file-path", expected_pcb, "--chat-id", sender_id, "--caption", "✅ PCB Generado Automáticamente (.kicad_pcb)"])
+            run_tool("telegram_tool.py", ["--action", "send-document", "--file-path", expected_pcb, "--chat-id", sender_id, "--caption", "✅ PCB Preparado para DeepPCB (.kicad_pcb)"])
             
             run_tool("telegram_tool.py", ["--action", "send", "--message", "🎨 Generando vista previa de la placa...", "--chat-id", sender_id])
             render_script_path = os.path.join("execution", "render_pcb.py")
@@ -684,13 +688,11 @@ def _handle_pcb(msg, sender_id, run_tool):
                 res_render = run_tool("run_sandbox.py", ["--code", inj_render + render_code])
                 expected_png = os.path.join(".out", "pcb_preview.png")
                 if res_render.get("status") == "success" and os.path.exists(expected_png):
-                    final_caption = "👁️ Vista Previa (Top Layer)"
+                    final_caption = "👁️ Vista Previa (Capas F.Cu y B.Cu)"
                     if routing_summary:
                         final_caption += f"\n\n{routing_summary}"
                     run_tool("telegram_tool.py", ["--action", "send-photo", "--file-path", expected_png, "--chat-id", sender_id, "--caption", final_caption])
-                if routing_summary and "❌" in routing_summary:
-                    return "⚠️ El archivo PCB fue generado, pero algunas conexiones no pudieron enrutarse automáticamente. Revisa la ubicación de los componentes."
-                return "¡Éxito! He generado el archivo de placa y las pistas automáticamente."
+                    return "¡Éxito! Componentes ubicados y redes asignadas. Usa `/deeppcb` para exportar el diseño y subirlo a DeepPCB.ai para el enrutado final."
         else:
             stdout = res_exec.get("stdout", "")
             stderr = res_exec.get("stderr", "")
@@ -704,6 +706,39 @@ def _handle_pcb(msg, sender_id, run_tool):
             )
     except Exception as e:
         return f"❌ Error interno ejecutando script: {e}"
+
+def _handle_deeppcb(msg, sender_id, run_tool):
+    pcb_file_host = os.path.join(".out", "circuito_generado.kicad_pcb")
+    if not os.path.exists(pcb_file_host):
+        return "⚠️ No hay un archivo de placa (.kicad_pcb) activo. Primero usa `/pcb` para generar uno."
+
+    run_tool("telegram_tool.py", ["--action", "send", "--message", "🛰️ Generando archivo Specctra DSN para DeepPCB...", "--chat-id", sender_id])
+    
+    dsn_filename = "circuito_generado.dsn"
+    dsn_path_host = os.path.join(".out", dsn_filename)
+    
+    # Código Python para ejecutar dentro del Sandbox que invoca kicad-cli
+    export_code = f"""
+import subprocess
+import os
+try:
+    cmd = ["kicad-cli", "pcb", "export", "dsn", "--output", "/mnt/out/{dsn_filename}", "/mnt/out/circuito_generado.kicad_pcb"]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode == 0: print("DSN_EXPORT_OK")
+    else: print(f"DSN_EXPORT_FAIL: {{result.stderr}}")
+except Exception as e: print(f"DSN_EXCEPTION: {{str(e)}}")
+"""
+    
+    res_exec = run_tool("run_sandbox.py", ["--code", export_code])
+    
+    if "DSN_EXPORT_OK" in res_exec.get("stdout", ""):
+        if os.path.exists(dsn_path_host):
+            run_tool("telegram_tool.py", ["--action", "send-document", "--file-path", dsn_path_host, "--chat-id", sender_id, "--caption", "✅ Archivo Specctra DSN (.dsn)\\nListo para subir a DeepPCB.ai"])
+            return "¡Proceso completado!"
+        return "❌ El archivo .dsn no se generó correctamente en el host."
+    
+    error_msg = res_exec.get("stdout", "") or res_exec.get("message", "Error desconocido")
+    return f"❌ Error en la exportación: `{error_msg[:300]}`"
 
 def _handle_fabricar(msg, sender_id, run_tool):
     pcb_file_host = os.path.join(".out", "circuito_generado.kicad_pcb")
@@ -1239,6 +1274,7 @@ COMMAND_HANDLERS = {
     "/netlist": _handle_kicad,
     "/kicad": _handle_kicad,
     "/pcb": _handle_pcb,
+    "/deeppcb": _handle_deeppcb,
     "/layout": _handle_pcb,
     "/freecad": _handle_freecad,
     "/3d": _handle_freecad,

@@ -17,23 +17,36 @@ def render_board(board_path, output_image):
     ax.set_aspect('equal')
     ax.set_facecolor('#202020') # Dark PCB background
 
-    # Colors
-    color_f_cu = '#cc0000' # Red
+    # Colors (KiCad standards: Red=Top, Blue=Bottom)
+    color_f_cu = '#ff4444' # Rojo Brillante
+    color_b_cu = '#4488ff' # Azul Eléctrico
     color_pads = '#eebb00' # Gold
     color_edge = '#ffffff' # White
 
-    # 1. Draw Tracks (F.Cu)
-    for track in board.GetTracks():
-        if track.GetLayer() == pcbnew.F_Cu:
-            start = track.GetStart()
-            end = track.GetEnd()
-            width = track.GetWidth()
-            
-            x1, y1 = pcbnew.ToMM(start.x), pcbnew.ToMM(start.y)
-            x2, y2 = pcbnew.ToMM(end.x), pcbnew.ToMM(end.y)
-            w_mm = pcbnew.ToMM(width)
-            
-            ax.plot([x1, x2], [y1, y2], color=color_f_cu, linewidth=w_mm*3, alpha=0.8, solid_capstyle='round')
+    # 1. Draw Tracks (F.Cu and B.Cu) and Vias
+    for item in board.GetTracks():
+        if item.GetClass() in ["TRACK", "PCB_TRACK"]:
+            layer = item.GetLayer()
+            if layer in [pcbnew.F_Cu, pcbnew.B_Cu]:
+                start = item.GetStart()
+                end = item.GetEnd()
+                width = item.GetWidth()
+                
+                x1, y1 = pcbnew.ToMM(start.x), pcbnew.ToMM(start.y)
+                x2, y2 = pcbnew.ToMM(end.x), pcbnew.ToMM(end.y)
+                w_mm = pcbnew.ToMM(width)
+                
+                color = color_f_cu if layer == pcbnew.F_Cu else color_b_cu
+                # Aumentamos el multiplicador de ancho para mejor visibilidad y zorder alto
+                ax.plot([x1, x2], [y1, y2], color=color, linewidth=w_mm*10, alpha=0.8, solid_capstyle='round', zorder=10)
+        
+        elif item.GetClass() in ["VIA", "PCB_VIA"]:
+            pos = item.GetPosition()
+            x, y = pcbnew.ToMM(pos.x), pcbnew.ToMM(pos.y)
+            width = pcbnew.ToMM(item.GetWidth())
+            # Las vías se dibujan como anillos concéntricos
+            ax.add_patch(Circle((x, y), width/2, color='#bcbcbc', zorder=5))
+            ax.add_patch(Circle((x, y), width/4, color='#202020', zorder=6))
 
     # 2. Draw Pads
     for footprint in board.GetFootprints():
@@ -46,11 +59,11 @@ def render_board(board_path, output_image):
             
             patch = None
             if shape == pcbnew.PAD_SHAPE_CIRCLE:
-                patch = Circle((x, y), w/2, color=color_pads, alpha=1.0)
+                patch = Circle((x, y), w/2, color=color_pads, alpha=1.0, zorder=15)
             elif shape in [pcbnew.PAD_SHAPE_RECT, pcbnew.PAD_SHAPE_ROUNDRECT, pcbnew.PAD_SHAPE_OVAL]:
-                patch = Rectangle((x - w/2, y - h/2), w, h, color=color_pads, alpha=1.0)
+                patch = Rectangle((x - w/2, y - h/2), w, h, color=color_pads, alpha=1.0, zorder=15)
             else:
-                patch = Circle((x, y), min(w, h)/2, color=color_pads, alpha=1.0)
+                patch = Circle((x, y), min(w, h)/2, color=color_pads, alpha=1.0, zorder=15)
             
             if patch:
                 ax.add_patch(patch)
@@ -85,7 +98,7 @@ def render_board(board_path, output_image):
 
     ax.autoscale()
     ax.invert_yaxis()
-    plt.title("Vista Previa PCB (Top Layer)", color='white')
+    plt.title("Vista Previa PCB (Capas F.Cu y B.Cu)", color='white')
     plt.axis('off') # Hide axis
     
     plt.savefig(output_image, dpi=100, bbox_inches='tight', facecolor='#101010')

@@ -1,7 +1,7 @@
 # Hito 1.1: Gestión de Sesiones y Memoria Persistente
 
 **Estado:** Estable (Actualizado)
-**Versión:** 1.1
+**Versión:** 1.2
 
 ## Descripción General
 El Agente IA ha alcanzado la capacidad de automatizar el ciclo completo de diseño de PCBs, desde la interpretación visual de un esquema hasta la generación de archivos de fabricación industrial, utilizando una arquitectura de contenedores para ejecutar herramientas CAD (KiCad).
@@ -15,23 +15,28 @@ El Agente IA ha alcanzado la capacidad de automatizar el ciclo completo de dise�
 
 ### 2. Diseño Esquemático (`/kicad`)
 *   **Motor:** Script Python nativo (`json_to_kicad_netlist.py`).
-*   **Función:** Genera archivos `.kicad_sch` compatibles con KiCad 9.0.
+*   **Función:** Genera archivos `.kicad_sch` compatibles con KiCad 8.0.
 *   **Mejoras:** Posicionamiento automático de etiquetas para evitar superposiciones.
 
 ### 3. Diseño de PCB (Layout) (`/pcb`)
 *   **Motor:** Scripting de KiCad (`pcbnew`) vía Docker.
 *   **Función:** Crea archivos `.kicad_pcb` físicos.
 *   **Características:**
-    *   Colocación automática de huellas (Footprints) en rejilla.
-    *   Generación de Ratsnest (conexiones lógicas).
+    *   **Placement Optimizado:** Ubicación automática de componentes mediante algoritmos de atracción por afinidad de red.
+    *   **Diseño para DeepPCB:** Lógica de despeje central para facilitar el enrutado por IA externa (SoC-ready).
     *   Ejecución aislada en Sandbox (Ubuntu 22.04) para acceso a librerías de sistema.
 
-### 4. Manufactura (`/fabricar`)
+### 4. Enrutado por IA Externa (`/deeppcb`)
+*   **Función:** Exportación del diseño al estándar Specctra DSN.
+*   **Objetivo:** Permitir el uso de auto-enrutadores basados en Deep Learning (DeepPCB.ai) para circuitos complejos (SoC, alta densidad).
+*   **Flujo:** Exportación DSN -> Enrutado Externo -> Importación de sesión (.ses) en KiCad.
+
+### 5. Manufactura (`/fabricar`)
 *   **Motor:** Generador de Gerbers (`generate_gerbers.py`).
 *   **Función:** Exporta capas de cobre, máscara, serigrafía y corte.
 *   **Salida:** Paquete ZIP estandarizado para fabricantes (JLCPCB, PCBWay) o CNC.
 
-### 5. Generación de G-Code (`/gcode`)
+### 6. Generación de G-Code (`/gcode`)
 *   **Motor:** `pcb2gcode` (v1.1.4 compatible) + Scripts Python.
 *   **Función:** Convierte archivos Gerber en instrucciones G-Code (.nc) para fresadoras CNC.
 *   **Características:**
@@ -40,13 +45,13 @@ El Agente IA ha alcanzado la capacidad de automatizar el ciclo completo de dise�
     *   Soporte para taladrado (Drill) y corte de contorno (Edge Cuts).
     *   Parámetros ajustados para compatibilidad con versiones legacy de `pcb2gcode`.
 
-### 6. Gestión de Sesiones (Nueva)
+### 7. Gestión de Sesiones
 *   **Motor:** SQLite + LLM Summarization.
 *   **Funcionalidad:** `/resume`, `/buscar_sesion`, `/exportar_sesion`.
 *   **Persistencia:** Guardado automático de contextos antes de reinicios de sistema.
 *   **Documentación:** Generación de archivos .md automáticos desde el historial.
 
-### 7. Optimización Inteligente de Contexto
+### 8. Optimización Inteligente de Contexto
 *   **Gestión de Historial:** Implementación de un sistema de "ventana deslizante" que prioriza los mensajes más recientes y el contexto inicial de sistema.
 *   **Compresión Dinámica:** Reducción automática de la carga de tokens al detectar hilos de conversación extensos.
 *   **Protección contra Prompts Masivos:** Poda automática de archivos de entrada o logs que excedan los límites operativos seguros (30k caracteres).
@@ -60,6 +65,7 @@ El Agente IA ha alcanzado la capacidad de automatizar el ciclo completo de dise�
 *   **Correcciones Críticas:**
     *   Fix en `pathfinding` (uso de atributos `.x/.y` en GridNode).
     *   Mejora en fallback de footprints: ahora genera pads THT reales para permitir el enrutado si falla la carga de librería.
+    *   **Estrategia SoC:** Eliminación del enrutador A* local en favor de una ubicación de componentes que maximiza el espacio para enrutadores de IA externos.
     *   Fix en `/fabricar`: Se eliminó `SetExcludeEdgeLayer()` (removido en KiCad 8) para corregir la generación de Gerbers.
     *   **Validación DRC:** Se añadió verificación geométrica de cortocircuitos (Track vs Pad) en el script de generación de PCB.
     *   **Integración CNC:** Implementación de `pcb2gcode` en el Sandbox para conversión Gerber -> G-Code.
@@ -69,7 +75,7 @@ El Agente IA ha alcanzado la capacidad de automatizar el ciclo completo de dise�
     *   **Consistencia:** Migración de `chat_history.py` al directorio raíz de ejecución para cumplimiento de arquitectura de 3 capas.
 
 ## Siguientes Pasos (Rama Experimental)
-*   Desarrollo de algoritmos de Auto-enrutado (Pathfinding A*).
-*   Optimización de la ubicación de componentes (Placement).
+*   Automatización de la re-importación de archivos `.ses` (Specctra Session) generados por DeepPCB.
+*   Soporte para componentes SMD y footprints de alta densidad (BGA, QFP).
 *   Integración de reglas de diseño (DRC).
 *   Implementación de búsqueda semántica profunda en el historial de sesiones.

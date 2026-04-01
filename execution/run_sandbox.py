@@ -15,7 +15,8 @@ def run_in_sandbox(code_to_run):
     Ejecuta código Python dentro de un contenedor Docker aislado y seguro.
     """
     try:
-        client = docker.from_env()
+        # Aumentamos el timeout de la conexión a 300s para evitar cortes en procesos largos
+        client = docker.from_env(timeout=300)
     except docker.errors.DockerException:
         return {"status": "error", "message": "No se puede conectar al demonio de Docker. ¿Está corriendo?"}
 
@@ -52,8 +53,8 @@ def run_in_sandbox(code_to_run):
             }
         )
 
-        # Esperar a que termine, con un timeout mayor (120s) para permitir instalaciones (pip install)
-        result = container.wait(timeout=120)
+        # Esperar a que termine, con un tiempo límite de 5 minutos para el autoruteo complejo
+        result = container.wait(timeout=300)
         
         stdout = container.logs(stdout=True, stderr=False).decode('utf-8').strip()
         stderr = container.logs(stdout=False, stderr=True).decode('utf-8').strip()

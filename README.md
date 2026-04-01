@@ -21,7 +21,8 @@ El agente puede realizar las siguientes tareas a través de comandos de Telegram
 ### ⚡ Diseño Electrónico (con KiCad)
 - **Interpretación de Dibujos**: Analiza una foto de un circuito dibujado a mano y genera una netlist estructurada en formato JSON.
 - **Generación de Esquemáticos**: Crea un archivo de esquemático (`.kicad_sch`) a partir de la netlist interpretada.
-- **Auto-enrutado de PCB**: Genera un archivo de placa (`.kicad_pcb`) con pistas trazadas automáticamente.
+- **Placement de PCB**: Genera un archivo de placa (`.kicad_pcb`) con componentes ubicados de forma óptima para enrutado externo.
+- **Exportación Specctra DSN**: Genera archivos `.dsn` compatibles con enrutadores de IA como DeepPCB.
 - **Paquetes de Fabricación**: Crea un archivo `.zip` con todos los archivos Gerber y de taladrado (Drill), listo para enviar a fabricantes como JLCPCB o PCBWay.
 
 ### ⚙️ Fabricación CNC
