@@ -717,17 +717,33 @@ def _handle_deeppcb(msg, sender_id, run_tool):
     dsn_filename = "circuito_generado.dsn"
     dsn_path_host = os.path.join(".out", dsn_filename)
     
-    # Código Python para ejecutar dentro del Sandbox que invoca kicad-cli
-    export_code = f"""
-import subprocess
+    # Código Python para ejecutar dentro del Sandbox que usa pcbnew API para exportar DSN
+    export_code = f'''
 import os
+import sys
+import subprocess
+import time
+
+# Asegurar entorno headless (necesario para el motor de KiCad incluso en CLI)
+os.environ["DISPLAY"] = ":99"
+if os.system("pgrep Xvfb > /dev/null") != 0:
+    subprocess.Popen(["Xvfb", ":99", "-screen", "0", "1024x768x24", "-ac", "+extension", "GLX", "+render", "-noreset"])
+    time.sleep(1)
+
 try:
-    cmd = ["kicad-cli", "pcb", "export", "dsn", "--output", "/mnt/out/{dsn_filename}", "/mnt/out/circuito_generado.kicad_pcb"]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode == 0: print("DSN_EXPORT_OK")
-    else: print(f"DSN_EXPORT_FAIL: {{result.stderr}}")
+    import pcbnew
+    pcb_in = "/mnt/out/circuito_generado.kicad_pcb"
+    dsn_out = "/mnt/out/{dsn_filename}"
+    if not os.path.exists(pcb_in):
+        print("DSN_EXPORT_FAIL: Archivo .kicad_pcb no encontrado en el sandbox")
+        sys.exit(0)
+    board = pcbnew.LoadBoard(pcb_in)
+    if pcbnew.ExportSpecctraDSN(board, dsn_out):
+        print("DSN_EXPORT_OK")
+    else:
+        print("DSN_EXPORT_FAIL: La exportación de Specctra DSN falló.")
 except Exception as e: print(f"DSN_EXCEPTION: {{str(e)}}")
-"""
+'''
     
     res_exec = run_tool("run_sandbox.py", ["--code", export_code])
     

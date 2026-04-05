@@ -17,14 +17,16 @@ El bot colocará los componentes en la placa.
 ### Paso 3: Exportación para IA Externa (`/deeppcb`)
 Como los circuitos modernos son densos, usamos **DeepPCB.ai**.
 1.  Ejecuta `/deeppcb` para obtener el archivo `.dsn`.
-2.  Sube ese archivo a la plataforma DeepPCB.
+2.  En DeepPCB.ai, crea una "New Board" y en **"Select Starter File Type"** elige **Specctra DSN**.
+3.  **Board Name:** Ponle un nombre a tu proyecto.
+4.  **Board File:** Sube el archivo `circuito_generado.dsn` que descargaste del bot.
 3.  Deja que su red neuronal trace las pistas.
 4.  Descarga el archivo de sesión resultante (`.ses`).
 
-### Paso 4: Finalización en KiCad (Manual/Local)
-1.  Abre el archivo `.kicad_pcb` que te envió el bot.
-2.  Ve a `Archivo -> Importar -> Specctra Session` y elige el archivo de DeepPCB.
-3.  ¡Tus pistas aparecerán mágicamente!
+### Paso 4: Finalización y Enrutado (`Importar .ses`)
+1. Una vez que la IA de DeepPCB termine el trabajo, descarga el archivo de sesión resultante (`.ses`).
+2. **Sube el archivo .ses directamente al chat de Telegram del bot.**
+3. El Agente IA integrará las pistas automáticamente en tu archivo `.kicad_pcb` y te devolverá la placa ruteada lista para fabricar.
 
 ### Paso 5: Generación de Archivos de Fabricación (`/fabricar`)
 Una vez tengas las pistas, el bot generará los **Gerbers** (el estándar industrial) en un archivo ZIP.

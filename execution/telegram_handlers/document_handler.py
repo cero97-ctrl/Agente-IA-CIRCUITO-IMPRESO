@@ -1,6 +1,7 @@
 def handle_document(msg, sender_id, run_tool):
     import os
     import json
+    import shutil
     reply_text = ""
     parts = msg.replace("__DOCUMENT__:", "").split("|||")
     file_id = parts[0]
@@ -13,37 +14,70 @@ def handle_document(msg, sender_id, run_tool):
     local_path = os.path.join(".tmp", file_name)
     run_tool("telegram_tool.py", ["--action", "download", "--file-id", file_id, "--dest", local_path])
     
+    # Asegurar que el archivo esté disponible en el volumen del Sandbox (.out)
+    shutil.copy(local_path, os.path.join(".out", file_name))
     path_in_sandbox = f"/mnt/out/{file_name}"
-    read_code = (
-        f"from pypdf import PdfReader; "
-        f"reader = PdfReader('{path_in_sandbox}'); "
-        f"print('\\n'.join([page.extract_text() for page in reader.pages]))"
-    )
-    res_sandbox = run_tool("run_sandbox.py", ["--code", read_code])
-    if res_sandbox and res_sandbox.get("status") == "success":
-        content = res_sandbox.get("stdout", "")
-        if len(content) > 15000:
-            content = content[:15000] + "... (truncado)"
-        if not content.strip():
-            reply_text = "⚠️ El documento parece estar vacío o es una imagen escaneada sin texto."
-        else:
-            analysis_prompt = f"""Actúa como un Asistente Médico experto y empático. Analiza el siguiente informe médico proporcionado por el usuario.
-CONTEXTO DEL USUARIO: {caption}
-CONTENIDO DEL DOCUMENTO:
-{content}
-TAREA:
-1. Resume los hallazgos principales.
-2. Explica los términos técnicos en lenguaje sencillo para un paciente.
-3. Si hay diagnósticos o tratamientos, explícalos brevemente.
-4. IMPORTANTE: Termina con un disclaimer: "Nota: Soy una IA. Este análisis es informativo y no sustituye la opinión de un médico."
-"""
-            run_tool("telegram_tool.py", ["--action", "send", "--message", "🧠 Analizando informe médico...", "--chat-id", sender_id])
-            llm_res = run_tool("chat_with_llm.py", ["--prompt", analysis_prompt])
-            if llm_res and "content" in llm_res:
-                reply_text = llm_res["content"]
-            else:
-                reply_text = "❌ Error al analizar el documento con la IA."
+
+    # --- Lógica de Integración de Ruteado (Specctra Session .ses) ---
+    if file_name.lower().endswith(".ses"):
+        run_tool("telegram_tool.py", ["--action", "send", "--message", "🛰️ Archivo de sesión de DeepPCB detectado. Fusionando pistas...", "--chat-id", sender_id])
+        
+        merge_code = f'''
+import os
+import subprocess
+import time
+import sys
+
+# Asegurar entorno headless para el motor de KiCad
+os.environ["DISPLAY"] = ":99"
+if os.system("pgrep Xvfb > /dev/null") != 0:
+    subprocess.Popen(["Xvfb", ":99", "-screen", "0", "1024x768x24", "-ac", "+extension", "GLX", "+render", "-noreset"])
+    time.sleep(1)
+
+try:
+    import pcbnew
+    pcb_path = "/mnt/out/circuito_generado.kicad_pcb"
+    ses_path = "{path_in_sandbox}"
+    if not os.path.exists(pcb_path):
+        print("MERGE_FAIL: No se encontró el archivo .kicad_pcb original.")
     else:
-        err = res_sandbox.get("stderr") or res_sandbox.get("message")
-        reply_text = f"❌ Error leyendo el PDF: {err}"
-    return reply_text
+        board = pcbnew.LoadBoard(pcb_path)
+        if pcbnew.ImportSpecctraSession(board, ses_path):
+            pcbnew.SaveBoard(pcb_path, board)
+            print("MERGE_OK")
+        else:
+            print("MERGE_FAIL: Error en la importación de la sesión.")
+except Exception as e:
+    print(f"MERGE_EXCEPTION: {{str(e)}}")
+'''
+        res_exec = run_tool("run_sandbox.py", ["--code", merge_code])
+        
+        if "MERGE_OK" in res_exec.get("stdout", ""):
+            pcb_updated = os.path.join(".out", "circuito_generado.kicad_pcb")
+            run_tool("telegram_tool.py", ["--action", "send-document", "--file-path", pcb_updated, "--chat-id", sender_id, "--caption", "✅ ¡Enrutado completado!\\nHe integrado las pistas de DeepPCB en tu diseño. Ya puedes usar `/fabricar`."])
+            return "Placa actualizada con éxito."
+        else:
+            error_msg = res_exec.get("stdout", "") or res_exec.get("message", "Error desconocido")
+            return f"❌ Falló la integración de pistas: `{error_msg[:300]}`"
+
+    # --- Lógica de Resumen de Documentos Técnicos (PDF) ---
+    if file_name.lower().endswith(".pdf"):
+        read_code = (
+            f"from pypdf import PdfReader; "
+            f"reader = PdfReader('{path_in_sandbox}'); "
+            f"print('\\n'.join([page.extract_text() for page in reader.pages]))"
+        )
+        res_sandbox = run_tool("run_sandbox.py", ["--code", read_code])
+        if res_sandbox and res_sandbox.get("status") == "success":
+            content = res_sandbox.get("stdout", "")
+            if not content.strip():
+                return "⚠️ El PDF parece ser una imagen o está vacío."
+            
+            analysis_prompt = f"Resume los puntos clave de este documento técnico de ingeniería:\n\n{content[:12000]}"
+            run_tool("telegram_tool.py", ["--action", "send", "--message", "🧠 Analizando documento...", "--chat-id", sender_id])
+            llm_res = run_tool("chat_with_llm.py", ["--prompt", analysis_prompt])
+            return llm_res.get("content", "❌ Error al generar el resumen.")
+        else:
+            return f"❌ Error leyendo el PDF: {res_sandbox.get('message')}"
+
+    return f"📂 Archivo `{file_name}` recibido y guardado en el servidor."
