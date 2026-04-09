@@ -17,9 +17,12 @@ def main():
 
     print(f"✅ Se encontraron {len(ports)} dispositivos:")
     for port in ports:
+        vid = f"{port.vid:04X}" if port.vid is not None else "Desconocido"
+        pid = f"{port.pid:04X}" if port.pid is not None else "Desconocido"
         print(f"   - Puerto: {port.device}")
         print(f"     Desc:   {port.description}")
         print(f"     HWID:   {port.hwid}")
+        print(f"     ID:     VID:{vid} PID:{pid}")
         print("-" * 30)
 
 if __name__ == "__main__":
