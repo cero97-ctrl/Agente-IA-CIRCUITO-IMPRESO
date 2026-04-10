@@ -4,6 +4,7 @@ import sys
 import json
 import argparse
 import requests
+import re
 import warnings
 
 # Suppress warnings to ensure clean JSON output
@@ -40,6 +41,29 @@ try:
     from chat_openrouter import chat_openrouter
 except ImportError:
     pass # Se manejará si falla al llamar las funciones
+
+DEFAULT_SYSTEM_INSTRUCTION = (
+    "Eres un asistente de IA de élite actuando como el 'Cerebro' (Capa de Orquestación) en un sistema de diseño electrónico y fabricación digital. "
+    "Tu tarea es interpretar directivas y coordinar scripts de ejecución.\n"
+    "REGLAS DE FORMATO ESTRICTAS:\n"
+    "1. Si se solicita una salida en formato JSON (Netlist, parámetros CAD, etc.), responde ÚNICAMENTE con el JSON crudo. "
+    "NO uses bloques de código markdown (```json), ni incluyas texto explicativo antes o después. La salida debe ser directamente parseable.\n"
+    "2. En chat general, sé técnico, preciso y conciso.\n"
+    "3. Si tu proveedor es Google, identifícate como Gemini. Si es Groq, asume la identidad de Llama sin mencionar a Gemini."
+)
+
+def clean_llm_response(text):
+    """Limpia bloques de código markdown y espacios en blanco para asegurar datos puros."""
+    if not text:
+        return ""
+
+    # Si el texto contiene bloques de código, extraemos el contenido del primero.
+    # Esto es mucho más robusto frente a modelos que incluyen texto extra.
+    match = re.search(r"```(?:\w+)?\n?(.*?)\n?```", text, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+
+    return text.strip()
 
 def get_memory_context(query):
     """Busca contexto relevante en la memoria vectorial (ChromaDB)."""
@@ -87,7 +111,7 @@ def chat_openai(messages, model="gpt-4o-mini", system_instruction=None):
     if not api_key:
         return {"error": "Falta OPENAI_API_KEY en .env"}
 
-    sys_msg = system_instruction or "Eres un asistente de IA útil actuando como la capa de Orquestación en una arquitectura de 3 capas."
+    sys_msg = system_instruction or DEFAULT_SYSTEM_INSTRUCTION
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
@@ -104,7 +128,7 @@ def chat_openai(messages, model="gpt-4o-mini", system_instruction=None):
         resp = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=data, timeout=30)
         resp.raise_for_status()
         result = resp.json()
-        return {"content": result['choices'][0]['message']['content']}
+        return {"content": clean_llm_response(result['choices'][0]['message']['content'])}
     except Exception as e:
         return {"error": str(e)}
 
@@ -119,7 +143,7 @@ def chat_anthropic(messages, model="claude-3-5-sonnet-20240620", system_instruct
         "anthropic-version": "2023-06-01",
         "content-type": "application/json"
     }
-    sys_msg = system_instruction or "Eres un asistente de IA útil actuando como la capa de Orquestación en una arquitectura de 3 capas."
+    sys_msg = system_instruction or DEFAULT_SYSTEM_INSTRUCTION
     data = {
         "model": model,
         "max_tokens": 1024,
@@ -131,7 +155,7 @@ def chat_anthropic(messages, model="claude-3-5-sonnet-20240620", system_instruct
         resp = requests.post("https://api.anthropic.com/v1/messages", headers=headers, json=data, timeout=30)
         resp.raise_for_status()
         result = resp.json()
-        return {"content": result['content'][0]['text']}
+        return {"content": clean_llm_response(result['content'][0]['text'])}
     except Exception as e:
         return {"error": str(e)}
 
@@ -153,7 +177,7 @@ def chat_groq(messages, model="llama-3.3-70b-versatile", system_instruction=None
             "content": str(m.get("content", ""))
         })
 
-    sys_msg = system_instruction or "Eres un asistente de IA útil (Llama 3 en Groq) actuando como la capa de Orquestación. Si en el historial ves que te llamaste 'Gemini', ignóralo; ahora eres Llama 3."
+    sys_msg = system_instruction or DEFAULT_SYSTEM_INSTRUCTION
     # Groq usa un endpoint compatible con OpenAI
     data = {
         "model": model,
@@ -170,11 +194,11 @@ def chat_groq(messages, model="llama-3.3-70b-versatile", system_instruction=None
             return {"error": f"Groq API Error ({resp.status_code}): {resp.text}"}
             
         result = resp.json()
-        return {"content": result['choices'][0]['message']['content']}
+        return {"content": clean_llm_response(result['choices'][0]['message']['content'])}
     except Exception as e:
         return {"error": str(e)}
 
-def chat_gemini(messages, model="gemini-flash-latest", system_instruction=None):
+def chat_gemini(messages, model="gemini-2.0-flash", system_instruction=None):
     if not genai:
         return {"error": "Librería 'google-generativeai' no instalada. Ejecuta: pip install -r requirements.txt"}
 
@@ -186,7 +210,7 @@ def chat_gemini(messages, model="gemini-flash-latest", system_instruction=None):
         genai.configure(api_key=api_key)
 
         # Preparar historial y system instruction
-        sys_msg = system_instruction or "Eres Gemini, un modelo de IA de Google, actuando como la capa de Orquestación en una arquitectura de 3 capas. Identifícate siempre como Gemini/Google si te preguntan."
+        sys_msg = system_instruction or DEFAULT_SYSTEM_INSTRUCTION
         history = []
 
         for msg in messages:
@@ -206,8 +230,11 @@ def chat_gemini(messages, model="gemini-flash-latest", system_instruction=None):
 
         # Estrategia de Fallback: Intentar modelos alternativos si el principal falla
         models_to_try = [model]
-        # Lista de modelos seguros para probar en orden si el principal falla
-        fallbacks = ["gemini-2.0-flash", "gemini-flash-latest", "gemini-pro-latest"]
+        
+        # Obtener fallbacks de variable de entorno o usar lista por defecto
+        env_fallbacks = os.getenv("GEMINI_FALLBACK_MODELS", "gemini-2.0-flash,gemini-flash-latest,gemini-pro-latest")
+        fallbacks = [fb.strip() for fb in env_fallbacks.split(",")]
+        
         for fb in fallbacks:
             if fb != model:
                 models_to_try.append(fb)
@@ -218,7 +245,7 @@ def chat_gemini(messages, model="gemini-flash-latest", system_instruction=None):
                 model_instance = genai.GenerativeModel(model_name=target_model, system_instruction=sys_msg)
                 chat = model_instance.start_chat(history=history)
                 response = chat.send_message(last_message["parts"][0])
-                return {"content": response.text}
+                return {"content": clean_llm_response(response.text)}
             except Exception as e:
                 print(f"⚠️  Advertencia: Falló {target_model} ({e}). Intentando siguiente...", file=sys.stderr)
                 last_error = e
@@ -330,13 +357,13 @@ PREGUNTA DEL USUARIO:
         # Si el usuario fuerza uno, solo intentamos ese
         providers_to_try.append(args.provider)
     else:
-        # Orden de preferencia: Groq (Rápido) -> OpenRouter (Potente) -> Gemini (Backup robusto) -> Otros
+        # Orden de preferencia: Gemini (Principal por solicitud) -> Groq (Rápido) -> OpenRouter -> Otros
+        if os.getenv("GOOGLE_API_KEY") and os.getenv("GOOGLE_API_KEY").strip():
+            providers_to_try.append("gemini")
         if os.getenv("GROQ_API_KEY") and os.getenv("GROQ_API_KEY").strip():
             providers_to_try.append("groq")
         if os.getenv("OPENROUTER_API_KEY") and os.getenv("OPENROUTER_API_KEY").strip():
             providers_to_try.append("openrouter")
-        if os.getenv("GOOGLE_API_KEY") and os.getenv("GOOGLE_API_KEY").strip():
-            providers_to_try.append("gemini")
         if os.getenv("OPENAI_API_KEY") and os.getenv("OPENAI_API_KEY").strip():
             providers_to_try.append("openai")
         if os.getenv("ANTHROPIC_API_KEY") and os.getenv("ANTHROPIC_API_KEY").strip():

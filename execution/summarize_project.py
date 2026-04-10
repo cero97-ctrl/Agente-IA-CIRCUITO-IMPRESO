@@ -86,14 +86,6 @@ REQUISITOS DEL REPORTE:
 
     content = response.get("content", "")
 
-    # Limpieza
-    if content.startswith("```markdown"):
-        content = content.replace("```markdown", "", 1)
-    elif content.startswith("```"):
-        content = content.replace("```", "", 1)
-    if content.endswith("```"):
-        content = content[:-3]
-
     # 4. Guardar y Mostrar
     try:
         with open(report_path, "w", encoding="utf-8") as f:

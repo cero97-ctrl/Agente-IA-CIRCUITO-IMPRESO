@@ -71,16 +71,6 @@ REQUISITOS:
 
     new_code = response.get("content", "")
 
-    # Limpieza de Markdown
-    if new_code.startswith("```python"):
-        new_code = new_code.replace("```python", "", 1)
-    elif new_code.startswith("```"):
-        new_code = new_code.replace("```", "", 1)
-    if new_code.endswith("```"):
-        new_code = new_code[:-3]
-
-    new_code = new_code.strip()
-
     # Validación de Sintaxis
     try:
         ast.parse(new_code)

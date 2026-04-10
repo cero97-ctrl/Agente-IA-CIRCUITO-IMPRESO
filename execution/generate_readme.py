@@ -104,14 +104,6 @@ REQUISITOS:
 
     content = response.get("content", "")
 
-    # Limpieza de formato Markdown
-    if content.startswith("```markdown"):
-        content = content.replace("```markdown", "", 1)
-    elif content.startswith("```"):
-        content = content.replace("```", "", 1)
-    if content.endswith("```"):
-        content = content[:-3]
-
     # 4. Guardar archivo (con backup)
     if os.path.exists(readme_path):
         shutil.move(readme_path, readme_path + ".bak")

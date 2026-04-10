@@ -6,6 +6,19 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+def clean_response(text):
+    """Limpia bloques de código markdown y espacios en blanco."""
+    if not text:
+        return ""
+    text = text.strip()
+    if text.startswith("```"):
+        first_newline = text.find("\n")
+        if first_newline != -1:
+            text = text[first_newline:].strip()
+        if text.endswith("```"):
+            text = text[:-3].strip()
+    return text
+
 def chat_openrouter(messages, model="anthropic/claude-3.5-sonnet", system_instruction=None):
     """
     Envía mensajes a la API de OpenRouter.
@@ -56,7 +69,7 @@ def chat_openrouter(messages, model="anthropic/claude-3.5-sonnet", system_instru
         data = response.json()
         
         if "choices" in data and len(data["choices"]) > 0:
-            return {"content": data["choices"][0]["message"]["content"]}
+            return {"content": clean_response(data["choices"][0]["message"]["content"])}
         else:
             return {"error": "OpenRouter devolvió una respuesta vacía."}
 

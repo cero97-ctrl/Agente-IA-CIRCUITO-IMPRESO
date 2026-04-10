@@ -18,6 +18,19 @@ except ImportError:
 from dotenv import load_dotenv
 load_dotenv()
 
+def clean_response(text):
+    """Limpia bloques de código markdown y espacios en blanco."""
+    if not text:
+        return ""
+    text = text.strip()
+    if text.startswith("```"):
+        first_newline = text.find("\n")
+        if first_newline != -1:
+            text = text[first_newline:].strip()
+        if text.endswith("```"):
+            text = text[:-3].strip()
+    return text
+
 def main():
     parser = argparse.ArgumentParser(description="Analizar una imagen usando Gemini Vision.")
     parser.add_argument("--image", required=True, help="Ruta local de la imagen.")
@@ -39,7 +52,7 @@ def main():
         img = PIL.Image.open(args.image)
         
         # Estrategia de Fallback: Probar varios modelos de visión si el principal falla
-        models_to_try = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.5-pro']
+        models_to_try = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
         
         response = None
         last_error = None
@@ -60,7 +73,7 @@ def main():
         
         print(json.dumps({
             "status": "success",
-            "description": response.text
+            "description": clean_response(response.text)
         }))
 
     except Exception as e:

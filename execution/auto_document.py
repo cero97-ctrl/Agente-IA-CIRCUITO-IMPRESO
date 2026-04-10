@@ -68,12 +68,12 @@ CÓDIGO A DOCUMENTAR ({file_path}):
     messages = [{"role": "user", "content": prompt}]
 
     response = {}
-    if os.getenv("OPENAI_API_KEY"):
+    if os.getenv("GOOGLE_API_KEY"):
+        response = chat_gemini(messages)
+    elif os.getenv("OPENAI_API_KEY"):
         response = chat_openai(messages, model="gpt-4o")
     elif os.getenv("ANTHROPIC_API_KEY"):
         response = chat_anthropic(messages, model="claude-3-5-sonnet-20240620")
-    elif os.getenv("GOOGLE_API_KEY"):
-        response = chat_gemini(messages)
     else:
         print(json.dumps({"status": "error", "message": "No se encontraron API Keys configuradas en .env"}))
         sys.exit(1)
@@ -83,16 +83,6 @@ CÓDIGO A DOCUMENTAR ({file_path}):
         sys.exit(1)
 
     new_code = response.get("content", "")
-
-    # Limpieza de respuesta
-    if new_code.startswith("```python"):
-        new_code = new_code.replace("```python", "", 1)
-    elif new_code.startswith("```"):
-        new_code = new_code.replace("```", "", 1)
-    if new_code.endswith("```"):
-        new_code = new_code[:-3]
-
-    new_code = new_code.strip()
 
     # 3. Validación de seguridad (Sintaxis)
     try:

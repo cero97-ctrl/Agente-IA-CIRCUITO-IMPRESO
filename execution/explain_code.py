@@ -61,6 +61,25 @@ Markdown. Usa encabezados para separar secciones (Resumen, Análisis Detallado, 
         sys.exit(1)
 
     content = response.get("content", "")
+
+    # Guardar la explicación en un archivo .md en la carpeta docs/
+    try:
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        docs_dir = os.path.join(project_root, "docs")
+        os.makedirs(docs_dir, exist_ok=True)
+
+        # Crear un nombre único basado en la ruta relativa para evitar sobrescrituras
+        relative_path = os.path.relpath(file_path, project_root).replace(os.sep, '_')
+        filename_no_ext = os.path.splitext(relative_path)[0]
+        
+        output_file_name = f"Explicacion_{filename_no_ext}.md"
+        output_file_path = os.path.join(docs_dir, output_file_name)
+
+        with open(output_file_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+    except Exception as e:
+        print(f"⚠️ Advertencia: No se pudo guardar la explicación en docs/: {e}", file=sys.stderr)
+
     print(content)
 
 

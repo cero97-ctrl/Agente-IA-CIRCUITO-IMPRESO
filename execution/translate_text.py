@@ -77,14 +77,6 @@ CONTENIDO A TRADUCIR:
 
     translated_content = response.get("content", "")
 
-    # Limpieza básica
-    if translated_content.startswith("```markdown"):
-        translated_content = translated_content.replace("```markdown", "", 1)
-    elif translated_content.startswith("```"):
-        translated_content = translated_content.replace("```", "", 1)
-    if translated_content.endswith("```"):
-        translated_content = translated_content[:-3]
-
     # Generar nombre de archivo de salida
     base, ext = os.path.splitext(file_path)
     
