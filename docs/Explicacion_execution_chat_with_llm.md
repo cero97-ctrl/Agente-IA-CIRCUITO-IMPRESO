@@ -36,6 +36,12 @@ Aquí reside la lógica de negocio más compleja:
 *   **Inyección de RAG**: Si el RAG no está desactivado (`--no-rag`), el contexto recuperado de ChromaDB se inserta directamente en el último mensaje del usuario antes de enviarlo al LLM.
 *   **Sistema de Reintentos (Multi-Provider Fallback)**: Si el proveedor preferido falla (por cuotas agotadas o errores de red), el bucle `for provider in providers_to_try` intenta automáticamente con el siguiente proveedor configurado (Gemini -> Groq -> OpenRouter -> etc.).
 
+#### 7. Monitoreo de Recursos y Soporte ZRAM
+El script incluye un módulo de telemetría preventiva (usando `psutil`) específicamente diseñado para la ejecución local:
+- **Load Average**: Monitorea si la CPU está saturada por la compresión/descompresión.
+- **Detección de Swap Activo**: Informa al usuario si el sistema ha empezado a comprimir memoria (ZRAM), lo cual es un indicador de que el modelo de IA está demandando el máximo de recursos.
+- **Alertas de Memoria**: Emite avisos críticos antes de que el proceso sea terminado por el OOM-Killer del sistema operativo.
+
 ---
 
 ### Conclusión

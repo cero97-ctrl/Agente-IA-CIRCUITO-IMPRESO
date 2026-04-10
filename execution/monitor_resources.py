@@ -3,6 +3,7 @@ import argparse
 import sys
 import json
 import time
+import subprocess
 
 try:
     import psutil
@@ -10,6 +11,18 @@ except ImportError:
     print(json.dumps(
         {"status": "error", "message": "Librería 'psutil' no encontrada. Instala con: pip install psutil"}), file=sys.stderr)
     sys.exit(1)
+
+def get_zram_stats():
+    """Intenta obtener estadísticas detalladas de ZRAM si está disponible."""
+    try:
+        # Ejecutamos zramctl en formato JSON para una integración limpia
+        res = subprocess.run(['zramctl', '--output-all', '--json'], capture_output=True, text=True, timeout=2)
+        if res.returncode == 0:
+            data = json.loads(res.stdout)
+            return data.get("zramdevices", [])
+    except:
+        pass
+    return []
 
 
 def main():
@@ -28,6 +41,10 @@ def main():
     # Medir Disco (Raíz)
     disk = psutil.disk_usage('/')
     disk_usage = disk.percent
+
+    # Medir ZRAM
+    zram_devices = get_zram_stats()
+    has_zram = len(zram_devices) > 0
 
     alerts = []
     if cpu_usage > args.cpu_threshold:
@@ -48,8 +65,10 @@ def main():
             "memory_total_gb": round(mem.total / (1024**3), 2),
             "disk_percent": disk_usage,
             "disk_free_gb": round(disk.free / (1024**3), 2),
-            "disk_total_gb": round(disk.total / (1024**3), 2)
+            "disk_total_gb": round(disk.total / (1024**3), 2),
+            "zram_active": has_zram
         },
+        "zram_details": zram_devices,
         "alerts": alerts
     }
 

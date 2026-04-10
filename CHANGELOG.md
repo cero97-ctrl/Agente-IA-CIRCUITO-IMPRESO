@@ -6,6 +6,10 @@ El formato se basa en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Añadido
+- **Optimización de Memoria (ZRAM)**: Implementación de swap comprimido en RAM mediante ZRAM con algoritmo `zstd` para maximizar la capacidad de ejecución de Ollama en hardware limitado.
+- **Configuración de Resiliencia**: Ajuste de `swappiness=150` y prioridad de swap para garantizar que los modelos de IA tengan prioridad en la RAM física mientras los procesos de fondo se comprimen.
+- **Monitoreo de Recursos**: El orquestador `chat_with_llm.py` ahora reporta en tiempo real la carga del sistema (Load), disponibilidad de RAM y estado de la compresión ZRAM.
 
 ## [1.1.0] - 2024-07-28
 ### Añadido

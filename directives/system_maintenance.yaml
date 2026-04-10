@@ -1,0 +1,24 @@
+goal: "Realizar un diagnóstico y mantenimiento integral de los recursos del sistema (RAM, ZRAM, Disco) y la integridad de la memoria RAG."
+required_inputs: []
+optional_inputs:
+  - name: "full_clean"
+    description: "Si es 'true', ejecuta una limpieza profunda de archivos temporales."
+    default: "false"
+steps:
+  - step: "Diagnóstico de Recursos"
+    script_to_invoke: "execution/monitor_resources.py"
+    description: "Verificar el estado de la CPU, RAM física y el ratio de compresión de ZRAM."
+  - step: "Mantenimiento de Archivos"
+    script_to_invoke: "execution/clean_project.py"
+    description: "Eliminar logs antiguos y archivos temporales en .tmp/."
+  - step: "Auditoría de Memoria Vectorial"
+    script_to_invoke: "execution/list_memories.py"
+    description: "Listar los últimos recuerdos para asegurar que ChromaDB está respondiendo correctamente."
+    inputs:
+      - name: "--limit"
+        value: "5"
+expected_outputs:
+  - "Reporte detallado de salud del sistema y confirmación de espacio liberado."
+edge_cases:
+  - case: "ZRAM al 100% de uso"
+    protocol: "Notificar al usuario para cerrar procesos pesados en el host y ejecutar limpieza de caché."

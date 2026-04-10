@@ -75,6 +75,16 @@ Una vez configurado, inicia el bot que escuchará los comandos de Telegram.
 python execution/listen_telegram.py
 ```
 
+### 🚀 Optimización para Recursos Limitados (ZRAM)
+Para ejecutar modelos locales como `gemma:2b` de forma eficiente sin agotar la RAM física, el sistema utiliza **ZRAM** (Memoria Intercambio Comprimida). 
+
+**Configuración Recomendada:**
+- **Algoritmo**: `zstd` (mejor ratio de compresión).
+- **Tamaño**: 50% - 60% de la RAM física.
+- **Swappiness**: `150` (indica al kernel que prefiera comprimir memoria inactiva antes de usar el disco).
+
+Esta configuración permite que el sistema maneje ráfagas de carga de hasta 2x la RAM física disponible sin congelamientos, ideal para entornos de desarrollo en PC con 4GB u 8GB de RAM.
+
 ## Documentación Detallada
 
 Para una inmersión profunda en el proceso de diseño de PCBs con CNC, las herramientas y los scripts de Python involucrados, consulta el documento principal que originó esta investigación:

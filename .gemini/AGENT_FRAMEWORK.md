@@ -88,6 +88,7 @@ This is a list of the currently implemented workflows. You should select the mos
 *   **`generate_freecad_script.yaml`**: "Generar modelos 3D paramétricos (STL, STEP, OBJ, PNG), realizar operaciones booleanas, transformaciones, y calcular propiedades físicas (volumen, masa) utilizando FreeCAD en modo headless."
 *   **`generate_kicad_pcb_script.yaml`**: "Crear diseños de PCB automatizados y generar archivos de fabricación (Gerbers) mediante scripting de KiCad."
 *   **`git_update.yaml`**: "Gestionar el control de versiones del proyecto, aplicando versionado semántico (SemVer) y sincronizando con el repositorio remoto."
+*   **`system_maintenance.yaml`**: "Realizar un diagnóstico y mantenimiento integral de los recursos del sistema (RAM, ZRAM, Disco) y la base de datos de memoria."
 
 ### Layer 3: Execution (execution/) — Hacer el trabajo
 
