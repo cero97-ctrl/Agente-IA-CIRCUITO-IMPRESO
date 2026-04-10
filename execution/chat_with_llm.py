@@ -16,6 +16,12 @@ try:
 except ImportError:
     genai = None
 
+# Intentar importar psutil para monitoreo de recursos
+try:
+    import psutil
+except ImportError:
+    psutil = None
+
 # Intentar importar ChromaDB para memoria a largo plazo
 try:
     import chromadb
@@ -159,6 +165,81 @@ def chat_anthropic(messages, model="claude-3-5-sonnet-20240620", system_instruct
     except Exception as e:
         return {"error": str(e)}
 
+def chat_ollama(messages, model=None, system_instruction=None):
+    """Conector para modelos locales vía Ollama."""
+    base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    
+    # Monitoreo preventivo de RAM
+    if psutil:
+        mem = psutil.virtual_memory()
+        swap = psutil.swap_memory()
+        # Obtener carga del sistema (1, 5, 15 min). Load1 es el más útil aquí.
+        load1, _, _ = os.getloadavg() if hasattr(os, 'getloadavg') else (0, 0, 0)
+        
+        if mem.percent > 90:
+            print(f"⚠️  [Ollama] Alerta de memoria: {mem.percent}% en uso. La respuesta local podría ser lenta.", file=sys.stderr)
+        
+        swap_total_gb = swap.total / (1024**3)
+        swap_used_gb = swap.used / (1024**3)
+        print(f"📊 [Recursos] Load: {load1:.2f} | RAM Disp: {mem.available / (1024**3):.2f} GB | Swap: {swap_used_gb:.2f}/{swap_total_gb:.2f} GB ({swap.percent}%)", file=sys.stderr)
+        if swap.percent > 50:
+            print(f"ℹ️  [Recursos] El sistema está comprimiendo memoria (ZRAM/Swap activa).", file=sys.stderr)
+
+    target_model = model or os.getenv("OLLAMA_MODEL", "gemma:2b")
+    
+    sys_msg = system_instruction or DEFAULT_SYSTEM_INSTRUCTION
+    
+    payload = {
+        "model": target_model,
+        "messages": [
+            {"role": "system", "content": sys_msg}
+        ] + messages,
+        "stream": False,
+        "options": {
+            "temperature": 0.7
+        }
+    }
+
+    try:
+        # Incrementamos el timeout a 300 segundos (5 minutos) 
+        # para dar margen en sistemas con CPU-only y alta carga.
+        resp = requests.post(f"{base_url}/api/chat", json=payload, timeout=300)
+        if not resp.ok:
+            return {"error": f"Ollama Error ({resp.status_code}): {resp.text}"}
+            
+        result = resp.json()
+        return {"content": clean_llm_response(result['message']['content'])}
+    except Exception as e:
+        return {"error": f"No se pudo conectar con Ollama en {base_url}: {str(e)}"}
+
+def chat_deepseek(messages, model="deepseek-chat", system_instruction=None):
+    """Conector para la API de DeepSeek."""
+    api_key = os.getenv("DEEPSEEK_API_KEY")
+    if not api_key:
+        return {"error": "Falta DEEPSEEK_API_KEY en .env"}
+
+    sys_msg = system_instruction or DEFAULT_SYSTEM_INSTRUCTION
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": sys_msg}
+        ] + messages,
+        "temperature": 0.7
+    }
+
+    try:
+        # DeepSeek usa una interfaz compatible con OpenAI
+        resp = requests.post("https://api.deepseek.com/chat/completions", headers=headers, json=data, timeout=60)
+        resp.raise_for_status()
+        result = resp.json()
+        return {"content": clean_llm_response(result['choices'][0]['message']['content'])}
+    except Exception as e:
+        return {"error": str(e)}
+
 def chat_groq(messages, model="llama-3.3-70b-versatile", system_instruction=None):
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
@@ -277,7 +358,7 @@ def main():
     """
     parser = argparse.ArgumentParser(description="Enviar un prompt a un LLM.")
     parser.add_argument("--prompt", required=True, help="El mensaje para el LLM.")
-    parser.add_argument("--provider", choices=["openai", "anthropic", "gemini", "groq", "openrouter"], help="Proveedor de IA.")
+    parser.add_argument("--provider", choices=["openai", "anthropic", "gemini", "groq", "openrouter", "deepseek", "ollama"], help="Proveedor de IA.")
     parser.add_argument("--memory-query", help="Texto específico para buscar en memoria (si es diferente al prompt).")
     parser.add_argument("--memory-only", action="store_true", help="Solo consulta la memoria y devuelve el resultado directo sin llamar al LLM.")
     parser.add_argument("--no-rag", action="store_true", help="Desactiva la búsqueda en memoria (RAG).")
@@ -357,17 +438,19 @@ PREGUNTA DEL USUARIO:
         # Si el usuario fuerza uno, solo intentamos ese
         providers_to_try.append(args.provider)
     else:
-        # Orden de preferencia: Gemini (Principal por solicitud) -> Groq (Rápido) -> OpenRouter -> Otros
-        if os.getenv("GOOGLE_API_KEY") and os.getenv("GOOGLE_API_KEY").strip():
-            providers_to_try.append("gemini")
-        if os.getenv("GROQ_API_KEY") and os.getenv("GROQ_API_KEY").strip():
-            providers_to_try.append("groq")
-        if os.getenv("OPENROUTER_API_KEY") and os.getenv("OPENROUTER_API_KEY").strip():
-            providers_to_try.append("openrouter")
-        if os.getenv("OPENAI_API_KEY") and os.getenv("OPENAI_API_KEY").strip():
-            providers_to_try.append("openai")
-        if os.getenv("ANTHROPIC_API_KEY") and os.getenv("ANTHROPIC_API_KEY").strip():
-            providers_to_try.append("anthropic")
+        # Orden de preferencia dinámico basado en disponibilidad de llaves
+        priority_map = {
+            "GOOGLE_API_KEY": "gemini",
+            "GROQ_API_KEY": "groq",
+            "OPENROUTER_API_KEY": "openrouter",
+            "OPENAI_API_KEY": "openai",
+            "ANTHROPIC_API_KEY": "anthropic",
+            "DEEPSEEK_API_KEY": "deepseek",
+            "OLLAMA_BASE_URL": "ollama"
+        }
+        for env_var, provider_name in priority_map.items():
+            if os.getenv(env_var) and os.getenv(env_var).strip():
+                providers_to_try.append(provider_name)
             
     if not providers_to_try:
         print(json.dumps({"error": "No hay API Keys configuradas en .env"}))
@@ -380,6 +463,8 @@ PREGUNTA DEL USUARIO:
                 result = chat_openai(messages_for_llm, system_instruction=args.system)
             elif provider == "anthropic":
                 result = chat_anthropic(messages_for_llm, system_instruction=args.system)
+            elif provider == "deepseek":
+                result = chat_deepseek(messages_for_llm, system_instruction=args.system)
             elif provider == "groq":
                 result = chat_groq(messages_for_llm, system_instruction=args.system)
             elif provider == "gemini":
@@ -389,6 +474,8 @@ PREGUNTA DEL USUARIO:
                     result = chat_openrouter(messages_for_llm, system_instruction=args.system)
                 except NameError:
                     result = {"error": "El proveedor 'openrouter' no está disponible (no se pudo importar chat_openrouter.py)."}
+            elif provider == "ollama":
+                result = chat_ollama(messages_for_llm, system_instruction=args.system)
             
             # Si tuvimos éxito (hay contenido y no error), salimos del bucle
             if "content" in result and "error" not in result:

@@ -8,6 +8,25 @@ import shutil
 import glob
 import zipfile
 
+def _handle_ollama(msg, sender_id, run_tool):
+    query = msg.split(" ", 1)[1] if " " in msg else ""
+    if not query:
+        return "⚠️ Uso: /ollama [pregunta]\nEj: `/ollama ¿Qué es un puente de diodos?`"
+
+    print(f"   🏠 Forzando inferencia local con Ollama para: {query}")
+    # Notificar al usuario que se está usando el motor local
+    run_tool("telegram_tool.py", ["--action", "send", "--message", "🏠 Consultando al motor local (Ollama)...", "--chat-id", sender_id])
+
+    # Llamamos al orquestador forzando el proveedor 'ollama'
+    llm_res = run_tool("chat_with_llm.py", ["--prompt", query, "--provider", "ollama"])
+
+    if llm_res and "content" in llm_res:
+        return f"🏠 *Respuesta Local (Ollama):*\n\n{llm_res['content']}"
+    elif llm_res and "error" in llm_res:
+        return f"❌ Error en Ollama: {llm_res['error']}"
+    else:
+        return "❌ No se obtuvo respuesta del motor local."
+
 def _handle_investigar(msg, sender_id, run_tool):
     topic = msg.split(" ", 1)[1] if " " in msg else ""
     if not topic:
@@ -540,6 +559,7 @@ def _handle_ayuda(msg, sender_id, run_tool):
         "🔹 */fabricar*: Crea el paquete de Gerbers (.zip) para manufactura.\n"
         "🔹 */deeppcb*: Exporta a formato Specctra DSN para enrutado por IA.\n"
         "🔹 */gcode*: Genera el G-Code (.nc) para fresado CNC desde los Gerbers.\n"
+        "🔹 */ollama [pregunta]*: Fuerza una respuesta del modelo local.\n"
         "🔹 */send_cnc [puerto] [archivo]*: Envía G-Code a la CNC.\n"
         "🔹 */ayuda_cnc*: Envía la documentación sobre CNC.\n\n"
         "--- *Utilidades Generales* ---\n"
@@ -1297,6 +1317,8 @@ COMMAND_HANDLERS = {
     "/fabricar": _handle_fabricar,
     "/gerbers": _handle_fabricar,
     "/gcode": _handle_gcode,
+    "/ollama": _handle_ollama,
+    "/local": _handle_ollama,
 }
 
 def handle_command_text(msg, sender_id, run_tool):
