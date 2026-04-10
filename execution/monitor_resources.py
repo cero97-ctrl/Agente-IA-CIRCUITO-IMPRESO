@@ -24,6 +24,18 @@ def get_zram_stats():
         pass
     return []
 
+def get_gpu_status():
+    """Verifica si hay una GPU NVIDIA presente y funcional usando nvidia-smi."""
+    try:
+        res = subprocess.run(['nvidia-smi', '--query-gpu=name,memory.used,memory.total,utilization.gpu', '--format=csv,noheader,nounits'], 
+                             capture_output=True, text=True, timeout=2)
+        if res.returncode == 0:
+            parts = res.stdout.strip().split(',')
+            return {"model": parts[0], "used_m": parts[1], "total_m": parts[2], "load": parts[3]}
+    except:
+        pass
+    return None
+
 
 def main():
     parser = argparse.ArgumentParser(description="Monitorear uso de CPU y Memoria.")
@@ -46,6 +58,9 @@ def main():
     zram_devices = get_zram_stats()
     has_zram = len(zram_devices) > 0
 
+    # Medir GPU (NVIDIA)
+    gpu_info = get_gpu_status()
+
     alerts = []
     if cpu_usage > args.cpu_threshold:
         alerts.append(f"CPU Alto: {cpu_usage}% (Umbral: {args.cpu_threshold}%)")
@@ -66,9 +81,11 @@ def main():
             "disk_percent": disk_usage,
             "disk_free_gb": round(disk.free / (1024**3), 2),
             "disk_total_gb": round(disk.total / (1024**3), 2),
-            "zram_active": has_zram
+            "zram_active": has_zram,
+            "gpu_active": gpu_info is not None
         },
         "zram_details": zram_devices,
+        "gpu_details": gpu_info,
         "alerts": alerts
     }
 

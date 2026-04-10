@@ -85,6 +85,12 @@ Para ejecutar modelos locales como `gemma:2b` de forma eficiente sin agotar la R
 
 Esta configuración permite que el sistema maneje ráfagas de carga de hasta 2x la RAM física disponible sin congelamientos, ideal para entornos de desarrollo en PC con 4GB u 8GB de RAM.
 
+### 🏎️ Escalabilidad: Aceleración por GPU (NVIDIA)
+El agente está preparado para escalar a hardware con GPU. Para activar la aceleración CUDA en Ollama:
+1. Instalar drivers de NVIDIA y `nvidia-container-toolkit`.
+2. El orquestador detectará automáticamente la GPU mediante `nvidia-smi`.
+3. Los modelos como `gemma2:9b` o `llama3` podrán ejecutarse con latencia casi nula, liberando la CPU y la ZRAM para tareas de diseño pesado en KiCad/FreeCAD.
+
 ## Documentación Detallada
 
 Para una inmersión profunda en el proceso de diseño de PCBs con CNC, las herramientas y los scripts de Python involucrados, consulta el documento principal que originó esta investigación:
