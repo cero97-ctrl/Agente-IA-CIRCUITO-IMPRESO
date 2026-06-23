@@ -9,7 +9,7 @@ optional_inputs:
 steps:
   - step: "Update Core"
     script_to_invoke: "execution/update_framework.py"
-    description: "Hacer fetch de la plantilla y checkout forzado solo de las carpetas execution/ y .gemini/."
+    description: "Hacer fetch de la plantilla y checkout forzado solo de las carpetas execution/ y .agent/."
     inputs:
       - name: "--template-url"
         value: "{{template_url}}"

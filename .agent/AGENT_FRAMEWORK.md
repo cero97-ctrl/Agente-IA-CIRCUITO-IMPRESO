@@ -176,7 +176,7 @@ directives/ → SOPs en YAML (.yaml)
 execution/ → Scripts deterministas (Python)
 .tmp/ → Archivos temporales (regenerables)
 .env → Configuración y credenciales
-.gemini/ → Instrucciones de sistema y contexto del agente
+.agent/ → Instrucciones de sistema y contexto del agente
 
 **Regla de oro:**
 

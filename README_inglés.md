@@ -47,8 +47,8 @@ python execution/run_agent.py
 ## Agent Architecture
 This project uses a 3-layer architecture (Directives, Orchestration, Execution). For technical details on how to operate or extend the agent, consult:
 
-- [Agent Instructions](.gemini/instructions.md)
-- [Framework and Philosophy](.gemini/AGENT_FRAMEWORK.md)
+- [Agent Instructions](.agent/instructions.md)
+- [Framework and Philosophy](.agent/AGENT_FRAMEWORK.md)
 
 ## Development Tools
 This framework includes tools to facilitate common tasks:

@@ -52,7 +52,7 @@ def main():
     # Escaneo limitado de estructura para dar contexto al LLM
     for root, dirs, files in os.walk(project_root):
         # Ignorar carpetas ruidosas
-        if any(x in root for x in [".git", ".tmp", "__pycache__", ".gemini", "venv", "env"]):
+        if any(x in root for x in [".git", ".tmp", "__pycache__", ".agent", "venv", "env"]):
             continue
 
         level = root.replace(project_root, '').count(os.sep)

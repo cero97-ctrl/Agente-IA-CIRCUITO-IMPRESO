@@ -35,9 +35,9 @@ def main():
     print("⬇️  Descargando cambios...")
     run_command(["git", "fetch", "template"])
 
-    # 3. Checkout selectivo (Solo execution/ y .gemini/)
+    # 3. Checkout selectivo (Solo execution/ y .agent/)
     # Esto sobrescribe los scripts del framework con los de la plantilla, pero respeta directives/ de usuario
-    paths_to_update = ["execution", ".gemini", "requirements.txt", "setup.sh", ".gitignore"]
+    paths_to_update = ["execution", ".agent", "requirements.txt", "setup.sh", ".gitignore"]
     
     print("📦 Actualizando archivos del núcleo...")
     try:

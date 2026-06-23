@@ -440,8 +440,8 @@ PREGUNTA DEL USUARIO:
     else:
         # Orden de preferencia dinámico basado en disponibilidad de llaves
         priority_map = {
-            "GOOGLE_API_KEY": "gemini",
             "GROQ_API_KEY": "groq",
+            "GOOGLE_API_KEY": "gemini",
             "OPENROUTER_API_KEY": "openrouter",
             "OPENAI_API_KEY": "openai",
             "ANTHROPIC_API_KEY": "anthropic",

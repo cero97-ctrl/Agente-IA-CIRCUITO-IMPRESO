@@ -89,7 +89,7 @@ def main():
     total_issues = 0
 
     # Directorios a ignorar
-    ignore_dirs = {'.git', '.tmp', '__pycache__', 'venv', 'env', '.venv', '.gemini'}
+    ignore_dirs = {'.git', '.tmp', '__pycache__', 'venv', 'env', '.venv', '.agent'}
 
     for root, dirs, files in os.walk(project_root):
         # Filtrar directorios ignorados

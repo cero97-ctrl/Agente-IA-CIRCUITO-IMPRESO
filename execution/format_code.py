@@ -29,7 +29,7 @@ def main():
     # --max-line-length 120: Coherencia con audit_codebase.py
     # --exclude: Ignorar carpetas de sistema/entorno
 
-    exclude_patterns = ".git,.tmp,__pycache__,venv,env,.venv,.gemini,.idea,.vscode"
+    exclude_patterns = ".git,.tmp,__pycache__,venv,env,.venv,.agent,.idea,.vscode"
 
     command = [
         sys.executable, "-m", "autopep8",
